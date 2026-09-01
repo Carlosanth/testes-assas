@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Política de Privacidade · Escolha Seu Presente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0d0821;
+    --card: rgba(255,255,255,0.04);
+    --border: rgba(167,139,250,0.18);
+    --text: rgba(255,255,255,0.87);
+    --text2: rgba(255,255,255,0.60);
+    --text3: rgba(255,255,255,0.40);
+    --acento: #a78bfa;
+    --acento2: #7c3aed;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124,58,237,0.16) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(79,70,229,0.12) 0%, transparent 55%);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.65;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 24px 100px;
+  }
+  a { color: var(--acento); }
+  .voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text2);
+    text-decoration: none;
+    margin-bottom: 28px;
+  }
+  .voltar:hover { color: var(--acento); }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    background: linear-gradient(135deg, #fff, var(--acento));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .atualizado {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 36px;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin: 40px 0 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  p { color: var(--text2); margin: 0 0 14px; font-size: 15px; }
+  ul { margin: 0 0 14px; padding-left: 20px; color: var(--text2); font-size: 15px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); }
+  .tabela-dados {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 14px;
+  }
+  .tabela-dados th, .tabela-dados td {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .tabela-dados th {
+    background: rgba(167,139,250,0.08);
+    color: #fff;
+    font-weight: 600;
+  }
+  .tabela-dados td { color: var(--text2); }
+  .contato-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 16px;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text3);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="voltar" href="/">← Voltar ao início</a>
+    <h1>Política de Privacidade</h1>
+    <div class="atualizado">Última atualização: 7 de julho de 2026 · Versão 1.1</div>
+
+    <p>Esta Política de Privacidade descreve com transparência como a plataforma <strong>Escolha Seu Presente</strong> realiza o tratamento de dados pessoais de Clientes e Convidados, em total conformidade com a <strong>Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD)</strong>.</p>
+
+    <h2>1. Controlador dos Dados e Encarregado (DPO)</h2>
+    <p>A Escolha Seu Presente (CNPJ 67.963.969/0001-22) atua na qualidade de Controladora dos dados pessoais coletados. Para exercer qualquer direito previsto em lei ou esclarecer dúvidas, o titular poderá contactar diretamente o nosso Encarregado pelo tratamento de dados através do e-mail <strong>escolhseupresente@gmail.com</strong>.</p>
+
+    <h2>2. Escopo, Categorias e Coleta de Dados Pessoais</h2>
+    <p>O volume de dados coletados varia estritamente conforme a natureza da interação do usuário com a interface:</p>
+
+    <table class="tabela-dados">
+      <tr><th>Perfil do Titular</th><th>Dados Pessoais Coletados</th><th>Finalidade Legal (Art. 7º, LGPD)</th></tr>
+      <tr>
+        <td><strong>Cliente</strong> (Anfitrião)</td>
+        <td>Nome completo, e-mail de contato, credenciais criptografadas de acesso (via token do provedor), CPF e dados da conta bancária de mesma titularidade.</td>
+        <td>Execução de contrato e procedimentos preliminares (Art. 7º, V) + Proteção ao crédito e prevenção à fraude (Art. 7º, X).</td>
+      </tr>
+      <tr>
+        <td><strong>Convidado</strong> (Doador)</td>
+        <td>Nome informado no momento da dedicação do presente, Endereço de IP, metadados do navegador e dados transacionais brutos de pagamento.</td>
+        <td>Execução de contrato (Art. 7º, V) + Legítimo Interesse para segurança do ambiente (Art. 7º, IX).</td>
+      </tr>
+      <tr>
+        <td>Ambos</td>
+        <td>Preferência estética de interface (modo escuro/claro), logs técnicos do sistema e cookies estritamente operacionais de sessão.</td>
+        <td>Legítimo Interesse de otimização de produto (Art. 7º, IX).</td>
+      </tr>
+    </table>
+
+    <p><strong>Segurança de Dados Bancários de Pagamento:</strong> A Escolha Seu Presente <strong>não coleta, não processa e não armazena</strong> em infraestrutura própria dados sensíveis de pagamento como número de cartões de crédito, códigos CVV ou senhas. Essas informações são criptografadas diretamente na ponta e trafegadas via ambiente seguro TLS ao ecossistema do gateway de pagamento parceiro.</p>
+
+    <h2>3. Finalidades Específicas do Tratamento</h2>
+    <ul>
+      <li>Viabilizar a infraestrutura técnica das listas de presentes virtuais e o processamento de saques;</li>
+      <li>Garantir a integridade das operações antifraude, por meio da validação cadastral de CPF e cruzamento de endereços de IP para proteção do ecossistema financeiro;</li>
+      <li>Emitir alertas automáticos transacionais relativos ao status operacional da conta (confirmações de depósitos de presentes e avisos técnicos de segurança);</li>
+      <li>Cumprimento de obrigações legais, fiscais e regulatórias junto à administração pública e autoridades financeiras do Brasil.</li>
+    </ul>
+
+    <h2>4. Compartilhamento Necessário de Dados</h2>
+    <p>O compartilhamento de informações está restrito ao mínimo necessário para a execução técnica do serviço, condicionado a operadores contratados que guardam rígidos padrões de segurança digital:</p>
+    <ul>
+      <li><strong>Google Firebase / Google Cloud Platform:</strong> Hospedagem lógica, persistência da base de dados e gestão de autenticação segura;</li>
+      <li><strong>Gateway de Pagamentos / Instituição de Pagamento de Intermediação:</strong> Processamento das transações de cartões de crédito e arranjos Pix;</li>
+      <li><strong>Serviços de Automação de Infraestrutura / Webhooks:</strong> Intermediação e sincronização automática de eventos transacionais;</li>
+      <li><strong>Servidor de Armazenamento de Arquivos em Nuvem:</strong> Hospedagem estática das imagens enviadas para personalização das listas.</li>
+    </ul>
+
+    <h2>5. Retenção e Descarte de Dados</h2>
+    <p>Os dados associados às contas de Clientes serão guardados enquanto o cadastro permanecer ativo no ecossistema da plataforma. Diante da solicitação de exclusão do cadastro, dados transacionais, fiscais e registros de logs obrigatórios determinados pelo Marco Civil da Internet (Lei nº 12.965/2014) serão retidos pelos prazos prescricionais previstos na legislação civil, tributária e de defesa do consumidor para o resguardo de direitos em juízo.</p>
+
+    <h2>6. Direitos do Titular (Artigo 18, LGPD)</h2>
+    <p>A qualquer momento, mediante requisição direta enviada ao e-mail de suporte jurídico indicado, o titular de dados poderá requerer: confirmação de tratamento, acesso imediato aos dados cadastrais, correção de erros, eliminação de informações não obrigatórias por lei, portabilidade sistêmica e revogação de consentimentos anteriormente concedidos.</p>
+
+    <h2>7. Segurança da Informação</h2>
+    <p>Implementamos salvaguardas técnicas adequadas como criptografia em trânsito e em repouso, políticas restritivas de controle de acesso interno aos dados e monitoramento preventivo de tráfego. Em caso de incidentes relevantes de segurança que possam gerar risco aos titulares, realizaremos os planos de contenção e notificaremos as partes afetadas e a ANPD nos exatos prazos regulamentares.</p>
+
+    <div class="contato-box">
+      <h2 style="margin-top:0; border-top:none; padding-top:0;">8. Contato do DPO / Canal Judicial</h2>
+      <p style="margin-bottom:0;">Para exercer seus direitos de privacidade ou reportar inconformidades técnicas, envie e-mail detalhado para <strong>escolhseupresente@gmail.com</strong>.</p>
+    </div>
+
+    <footer>Escolha Seu Presente · <a href="/termos.html">Termos de Uso</a></footer>
+  </div>
+</body>
+</html>

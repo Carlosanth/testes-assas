@@ -1,0 +1,1136 @@
+/* ===================================================
+   RESET & BASE
+=================================================== */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: #0a0814;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    color: #fff;
+}
+
+.hidden { display: none !important; }
+
+/* Foco visível para navegação por teclado (Tab) */
+:focus-visible {
+    outline: 2px solid #a78bfa;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.field-input:focus-visible {
+    outline: none; /* já tem o próprio destaque via :focus (borda + glow) */
+}
+
+/* ===================================================
+   CARROSSEL DE FUNDO — mais transparente, com zoom sutil
+=================================================== */
+.carousel-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.carousel-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 8, 20, 0.74) 0%,
+        rgba(35, 15, 90, 0.62) 45%,
+        rgba(10, 8, 20, 0.8) 100%
+    );
+    backdrop-filter: blur(2px);
+}
+
+.carousel-track {
+    display: flex;
+    gap: 16px;
+    animation: scroll-fwd 22s linear infinite;
+    will-change: transform;
+}
+
+.carousel-track.track-inverso {
+    animation: scroll-rev 28s linear infinite;
+}
+
+.carousel-track img {
+    height: clamp(120px, 12vw, 170px);
+    border-radius: 16px;
+    object-fit: cover;
+    opacity: 0.45;
+    flex-shrink: 0;
+    animation: zoom-pulse 9s ease-in-out infinite;
+}
+
+.carousel-track img:nth-child(3n)   { animation-delay: -1.5s; }
+.carousel-track img:nth-child(3n+1) { animation-delay: -4.5s; }
+.carousel-track img:nth-child(3n+2) { animation-delay: -7.5s; }
+
+@keyframes scroll-fwd {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+@keyframes scroll-rev {
+    0%   { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+}
+@keyframes zoom-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.1); }
+}
+
+/* ===================================================
+   LAYOUT DE DUAS COLUNAS
+   Os valores abaixo usam clamp(mínimo, preferencial-em-vw, máximo)
+   pra crescer/encolher de forma fluida com a largura da tela,
+   em vez de um tamanho fixo em px ou de zoom.
+=================================================== */
+.page-layout {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: clamp(40px, 6vw, 90px);
+    min-height: 100vh;
+    padding: clamp(32px, 6vw, 80px) clamp(20px, 4vw, 40px);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* ===================================================
+   COLUNA ESQUERDA — HERO / PROPOSTA DE VALOR
+=================================================== */
+.hero-col {
+    flex: 1;
+    max-width: clamp(360px, 42vw, 580px);
+    padding-top: 6px;
+}
+
+.brand-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(8px, 0.8vw, 12px);
+    font-size: clamp(14px, 1.15vw, 18px);
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: clamp(24px, 3.2vw, 48px);
+}
+
+.brand-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(30px, 2.2vw, 34px);
+    height: clamp(30px, 2.2vw, 34px);
+    flex-shrink: 0;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff;
+}
+
+.brand-icon svg {
+    width: clamp(20px, 1.05vw, 16px);
+    height: clamp(20px, 1.05vw, 16px);
+}
+
+.hero-title {
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(32px, 4.6vw, 52px);
+    font-weight: 800;
+    line-height: 1.18;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    margin-bottom: clamp(14px, 1.6vw, 20px);
+    max-width: clamp(320px, 38vw, 470px);
+}
+
+.hero-subtitle {
+    font-size: clamp(14px, 1.15vw, 17px);
+    font-weight: 300;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.58);
+    margin-bottom: clamp(24px, 3vw, 38px);
+    max-width: clamp(300px, 32vw, 430px);
+}
+
+/* Passos em linha, com divisórias */
+.steps-row {
+    display: flex;
+    gap: clamp(16px, 2vw, 28px);
+    margin-bottom: clamp(40px, 2.4vw, 30px);
+}
+
+.step-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: clamp(16px, 2vw, 28px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.step-item1 {
+    /* No desktop, o wrapper "some" e deixa os itens 02 e 03
+       participarem diretamente do flex row do .steps-row,
+       ficando lado a lado com o item 01. */
+    display: contents;
+}
+
+
+.step-item:last-child {
+    border-right: none;
+    padding-right: 0;
+}
+
+.step-numero {
+    font-size: clamp(11px, 0.9vw, 13px);
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.step-item strong {
+    font-size: clamp(13px, 1.05vw, 15px);
+    font-weight: 700;
+    color: #fff;
+}
+
+.step-item span {
+    font-size: clamp(11px, 0.9vw, 13px);
+    font-weight: 300;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.hero-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    margin-bottom: clamp(18px, 2vw, 26px);
+}
+
+/* Prova social — layout horizontal */
+.social-proof {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 1.4vw, 18px);
+    display: none;
+}
+
+.avatar-stack {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.avatar {
+    width: clamp(28px, 2.4vw, 34px);
+    height: clamp(28px, 2.4vw, 34px);
+    border-radius: 50%;
+    border: 2px solid #0a0814;
+    margin-left: -10px;
+}
+
+.avatar:first-child { margin-left: 0; }
+
+.social-quote p {
+    font-size: clamp(12px, 0.95vw, 14px);
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+    margin-bottom: 3px;
+}
+
+.social-quote cite {
+    font-size: clamp(9px, 0.75vw, 11px);
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+@media (max-width: 860px) {
+    .social-proof {
+        flex-direction: column;
+        text-align: center;
+        display: none;
+    }
+}
+
+.scroll-indicator {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+    margin: 0 auto 8px;
+    padding: 8px 16px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: color 0.2s;
+}
+
+.scroll-indicator:hover {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.scroll-indicator svg {
+    width: 18px;
+    height: 18px;
+    animation: scroll-bounce 1.8s ease-in-out infinite;
+}
+
+@keyframes scroll-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(5px); }
+}
+
+/* ===================================================
+   COLUNA DIREITA — CARD DE FORMULÁRIO
+=================================================== */
+.form-col {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: clamp(360px, 30vw, 440px);
+    position: relative;
+}
+
+.form-col::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.22) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.auth-card {
+    background: rgba(24, 16, 46, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 22px;
+    padding: clamp(22px, 2vw, 30px) clamp(22px, 2.2vw, 32px) clamp(26px, 2.4vw, 34px);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.auth-card.card-erro {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+/* Abas Entrar / Criar conta */
+.auth-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: clamp(18px, 1.8vw, 24px);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+}
+
+.auth-tab {
+    flex: 1;
+    padding: clamp(8px, 0.8vw, 10px);
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(12px, 0.95vw, 14px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.auth-tab:hover:not(.active) {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.auth-tab.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.auth-tab-panel {}
+
+.card-eyebrow {
+    font-size: clamp(11px, 0.85vw, 12px);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #a78bfa;
+    margin-bottom: 6px;
+}
+
+.card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(24px, 2.2vw, 30px);
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: clamp(16px, 1.6vw, 22px);
+}
+
+.card-description {
+    font-size: clamp(12px, 0.95vw, 13px);
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.6;
+    margin-bottom: 18px;
+    margin-top: -8px;
+}
+
+/* Selos de confiança — bolinhas coloridas */
+.trust-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px clamp(14px, 1.4vw, 18px);
+    margin-top: clamp(14px, 1.4vw, 18px);
+}
+
+.trust-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: clamp(10px, 0.82vw, 12px);
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dot-green  { background: #34d399; }
+.dot-purple { background: #a78bfa; }
+.dot-gray   { background: rgba(255, 255, 255, 0.4); }
+
+.card-legal {
+    margin-top: clamp(14px, 1.4vw, 18px);
+    font-size: clamp(9px, 0.72vw, 10.5px);
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.32);
+    text-align: center;
+}
+
+.card-legal a {
+    color: rgba(255, 255, 255, 0.45);
+    text-decoration: underline;
+}
+
+.card-legal a:hover { color: rgba(255, 255, 255, 0.7); }
+
+/* ===================================================
+   CAMPOS DO FORMULÁRIO
+=================================================== */
+.field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: clamp(12px, 1.2vw, 15px);
+}
+
+.field-group label {
+    font-size: clamp(10px, 0.78vw, 11px);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+    padding-left: 2px;
+}
+
+.field-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.link-inline {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: clamp(11px, 0.85vw, 12px);
+    font-weight: 500;
+    color: #a78bfa;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.link-inline:hover { color: #c4b5fd; text-decoration: underline; }
+
+.field-input {
+    width: 100%;
+    padding: clamp(11px, 1vw, 14px) clamp(14px, 1.2vw, 18px);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 11px;
+    color: #fff;
+    font-size: clamp(13px, 1vw, 15px);
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.field-input::placeholder {
+    color: rgba(255, 255, 255, 0.28);
+}
+
+.field-input:focus {
+    border-color: rgba(167, 139, 250, 0.7);
+    background: rgba(167, 139, 250, 0.08);
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
+}
+
+/* Campo de senha com botão mostrar/ocultar */
+.password-field {
+    position: relative;
+}
+
+.password-field .field-input {
+    padding-right: 44px;
+}
+
+.toggle-senha {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+}
+
+.toggle-senha:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.toggle-senha svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+}
+
+.toggle-senha .icon-eye-off { display: none; }
+.toggle-senha.visivel .icon-eye { display: none; }
+.toggle-senha.visivel .icon-eye-off { display: block; }
+
+.field-hint {
+    font-size: clamp(10px, 0.78vw, 11px);
+    color: rgba(255, 255, 255, 0.38);
+    padding-left: 2px;
+}
+
+/* ===================================================
+   MENSAGENS DE ERRO / SUCESSO
+=================================================== */
+.msg-erro {
+    min-height: 18px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 8px;
+    color: transparent;
+    transition: color 0.2s;
+}
+
+.msg-erro.visivel {
+    color: #f87171;
+}
+
+.msg-erro.sucesso.visivel {
+    color: #34d399;
+}
+
+/* ===================================================
+   CHECKBOX "MANTENHA-ME CONECTADO"
+=================================================== */
+.checkbox-manter-conectado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: clamp(11px, 0.85vw, 12px);
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: clamp(12px, 1.2vw, 15px);
+    cursor: pointer;
+}
+
+.checkbox-manter-conectado input {
+    width: auto;
+    margin: 0;
+    accent-color: #a78bfa;
+    cursor: pointer;
+}
+
+/* ===================================================
+   BOTÕES
+=================================================== */
+.btn-primary {
+    display: block;
+    width: 100%;
+    padding: clamp(12px, 1.1vw, 14px);
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    border: none;
+    border-radius: 11px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(13px, 1vw, 15px);
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    margin-bottom: 6px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s;
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.45);
+}
+
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+    display: block;
+    width: 100%;
+    padding: clamp(11px, 1vw, 13px);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 11px;
+    color: rgba(255, 255, 255, 0.8);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(12px, 0.95vw, 13px);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.26);
+}
+
+.btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: clamp(11px, 1vw, 13px);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 11px;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(12px, 0.95vw, 13px);
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-google:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.26);
+}
+
+.btn-google:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-apple {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: clamp(11px, 1vw, 13px);
+    background: #000;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 11px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: clamp(12px, 0.95vw, 13px);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-apple:hover {
+    background: #1a1a1a;
+    border-color: rgba(255, 255, 255, 0.26);
+}
+
+.btn-apple:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.apple-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.google-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Divisor */
+.card-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0;
+}
+
+.card-divider::before,
+.card-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.card-divider span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.35);
+    white-space: nowrap;
+}
+
+/* ===================================================
+   NAVBAR MOBILE — só aparece em telas pequenas (ver media query abaixo)
+=================================================== */
+.navbar-mobile {
+    display: none;
+}
+
+.navbar-mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.navbar-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-nav-ghost,
+.btn-nav-primary {
+    padding: 10px 14px;
+    border-radius: 9px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-nav-ghost {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.btn-nav-ghost:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-nav-primary {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    border: none;
+    color: #fff;
+}
+
+.mobile-auth-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(6, 4, 14, 0.6);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s;
+}
+
+.mobile-auth-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.mobile-auth-close {
+    display: none;
+}
+
+/* ===================================================
+   RESPONSIVO
+=================================================== */
+
+@media (max-width: 860px) {
+    .navbar-mobile {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 80;
+        padding: 18px 13px;
+        background: rgba(10, 8, 20, 0.78);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .page-layout {
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 120px 20px 48px;
+        gap: 32px;
+        min-height: 50vh;
+    }
+
+    .hero-col {
+        max-width: 100%;
+        text-align: center;
+    }
+
+    /* A marca some do hero — ela já está na navbar fixa */
+    .hero-col .brand-mark { display: none; }
+
+    .hero-title,
+    .hero-subtitle {
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .steps-row {
+        flex-direction: row;
+        gap: 16px;
+    }
+
+    .step-item {
+        padding-right: 0;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 16px;
+        text-align: left;
+    }
+
+    .step-item:last-child { border-bottom: none; padding-bottom: 0; }
+
+    /* Form vira popover: escondido até clicar em Entrar/Criar conta na navbar */
+    .form-col {
+        display: none;
+        max-width: 380px;
+        width: calc(100% - 40px);
+    }
+
+    .form-col.mobile-open {
+        display: block;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 100;
+        transform: translate(-50%, -50%) scale(0.96);
+        opacity: 0;
+        animation: mobile-popover-in 0.2s ease forwards;
+    }
+
+    @keyframes mobile-popover-in {
+        to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    .form-col::before { display: none; }
+
+    .mobile-auth-close {
+        display: flex;
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 2;
+        width: 28px;
+        height: 28px;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 50%;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 13px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .mobile-auth-close:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #fff;
+        
+    }
+
+    .step-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .step-item:last-child {
+        border-right: none;
+        padding-right: 0;
+    }
+
+    .step-item1 {
+        display: flex;
+        gap: 11px;
+    }
+
+    .step-item {
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 16px;
+        border: solid 1px rgb(255 255 255 / 16%);
+        border-radius: 10px;
+        padding: 11px;
+    }
+
+    /* No estilo card do mobile, o último item (03) também precisa
+       da borda completa — as regras :last-child acima eram do
+       layout antigo de divisórias e removiam borda direita/inferior. */
+    .step-item:last-child {
+        border-right: 1px solid rgb(255 255 255 / 16%);
+        border-bottom: 1px solid rgb(255 255 255 / 16%);
+        padding-right: 11px;
+        padding-bottom: 11px;
+    }
+
+    .steps-row {
+        flex-direction: column;
+        gap: 16px;
+        display: flex;
+    }
+ 
+ 
+}
+
+@media (max-width: 520px) {
+    .auth-card {
+        padding: 20px 20px 24px;
+    }
+
+    .trust-badges { justify-content: center; }
+}
+
+/* ================================================================
+   SEÇÃO — PERGUNTAS FREQUENTES
+================================================================ */
+.section-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 32px;
+}
+
+.section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(28px, 3.5vw, 38px);
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.faq {
+    position: relative;
+    z-index: 1;
+    padding: 0 0 56px;
+}
+
+.faq-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.faq-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 4px 20px;
+}
+
+.faq-item summary {
+    padding: 16px 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.faq-item summary::-webkit-details-marker { display: none; }
+
+.faq-item summary::after {
+    content: '+';
+    font-size: 20px;
+    color: #a78bfa;
+    margin-left: 12px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.faq-item[open] summary::after {
+    transform: rotate(45deg);
+}
+
+.faq-item p {
+    padding-bottom: 18px;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* ================================================================
+   RODAPÉ DO SITE — links legais, contato e redes sociais
+================================================================ */
+.site-footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 24px;
+    padding: 28px 32px 32px;
+    border-top: 1px solid rgba(167, 139, 250, 0.15);
+}
+.footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 24px;
+    text-align: center;
+}
+.footer-brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.75);
+    width: 100%;
+}
+.footer-links a,
+.footer-contato a,
+.footer-social a {
+    color: rgba(255,255,255,0.55);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color .18s;
+}
+.footer-links a:hover,
+.footer-contato a:hover,
+.footer-social a:hover {
+    color: #a78bfa;
+}
+.footer-sep {
+    color: rgba(255,255,255,0.25);
+    margin: 0 2px;
+}
+.footer-social {
+    display: flex;
+    gap: 16px;
+}
+.footer-copy {
+    width: 100%;
+    font-size: 11px;
+    color: rgba(255,255,255,0.30);
+    margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+    .site-footer { padding: 24px 20px 28px; }
+    .footer-inner { gap: 8px 16px; }
+}
+
+/* ================================================================
+   CHECKBOX DE ACEITE DOS TERMOS (cadastro)
+================================================================ */
+.field-checkbox { margin-top: 4px; }
+.checkbox-termos {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.55);
+}
+.checkbox-termos input {
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: #a78bfa;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+.checkbox-termos a {
+    color: #a78bfa;
+    text-decoration: underline;
+}
+.checkbox-termos a:hover { color: #c4b5fd; }

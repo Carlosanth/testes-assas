@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete seu perfil — Escolha Seu Presente</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0d0821 0%, #1e0a4a 50%, #0d1a3a 100%);
+            font-family: 'Inter', sans-serif;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 20px;
+        }
+
+        /* ── Card central ── */
+        .onboarding-card {
+            width: 100%;
+            max-width: 460px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 28px;
+            padding: 44px 40px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow:
+                0 8px 40px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* ── Progresso ── */
+        .progresso {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 32px;
+        }
+
+        .passo {
+            flex: 1;
+            height: 4px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.15);
+            transition: background 0.4s;
+        }
+
+        .passo.ativo    { background: #7c3aed; }
+        .passo.completo { background: #34d399; }
+
+        /* ── Cabeçalho ── */
+        .eyebrow {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #a78bfa;
+            margin-bottom: 6px;
+        }
+
+        .titulo {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 34px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+            line-height: 1.15;
+        }
+
+        .subtitulo {
+            font-size: 14px;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        /* ── Campos ── */
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .field-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.75);
+            padding-left: 4px;
+        }
+
+        .field-group-linha {
+            display: flex;
+            gap: 12px;
+        }
+
+        .field-group-linha .field-group {
+            flex: 1;
+            margin-bottom: 16px;
+        }
+
+        .field-group-linha .field-group-estado {
+            flex: 0 0 70px;
+        }
+
+        .field-group-linha .field-group-estado .field-input {
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .field-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+
+        .field-input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+        .field-input:focus {
+            border-color: rgba(167, 139, 250, 0.7);
+            background: rgba(167, 139, 250, 0.08);
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
+        }
+
+        /* ── Aviso de segurança ── */
+        .aviso-seguranca {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: rgba(167, 139, 250, 0.08);
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 20px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.5;
+        }
+
+        .aviso-seguranca span { font-size: 16px; flex-shrink: 0; }
+
+        /* ── Mensagem erro/sucesso ── */
+        .msg-erro {
+            min-height: 18px;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 12px;
+            color: transparent;
+            transition: color 0.2s;
+        }
+        .msg-erro.visivel  { color: #f87171; }
+        .msg-erro.sucesso  { color: #34d399; }
+
+        /* ── Botão principal ── */
+        .btn-primary {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+            transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(124, 58, 237, 0.5);
+        }
+
+        .btn-primary:active  { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* ── Pular por enquanto ── */
+        .btn-pular {
+            display: block;
+            width: 100%;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.35);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+            padding: 12px 0 0;
+            transition: color 0.2s;
+        }
+        .btn-pular:hover { color: rgba(255, 255, 255, 0.6); }
+
+        /* ── Tela de sucesso ── */
+        .tela-sucesso {
+            display: none;
+            text-align: center;
+        }
+
+        .tela-sucesso .icone-ok {
+            font-size: 56px;
+            margin-bottom: 16px;
+            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+
+        .tela-sucesso .titulo-ok {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .tela-sucesso .desc-ok {
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.6);
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+
+        @media (max-width: 480px) {
+            .onboarding-card { padding: 32px 24px; }
+            .titulo { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="onboarding-card">
+
+        <!-- Barra de progresso: 3 passos visuais -->
+        <div class="progresso">
+            <div class="passo completo" id="passo1"></div>
+            <div class="passo ativo"    id="passo2"></div>
+            <div class="passo"          id="passo3"></div>
+        </div>
+
+        <!-- FORMULÁRIO DE PERFIL -->
+        <div id="tela-form">
+            <p class="eyebrow">Quase lá</p>
+            <h1 class="titulo">Complete seu perfil</h1>
+            <p class="subtitulo">
+                Precisamos de algumas informações para processar seus saques com segurança.
+            </p>
+
+            <div class="field-group">
+                <label for="cpfInput">CPF</label>
+                <input
+                    type="tel"
+                    id="cpfInput"
+                    class="field-input"
+                    placeholder="000.000.000-00"
+                    maxlength="14"
+                    required
+                >
+            </div>
+
+            <div class="field-group">
+                <label for="telefoneInput">Telefone / WhatsApp</label>
+                <input
+                    type="tel"
+                    id="telefoneInput"
+                    class="field-input"
+                    placeholder="(00) 00000-0000"
+                    maxlength="15"
+                    required
+                >
+            </div>
+
+            <div class="field-group-linha">
+                <div class="field-group">
+                    <label for="cidadeInput">Cidade</label>
+                    <input
+                        type="text"
+                        id="cidadeInput"
+                        class="field-input"
+                        placeholder="Sua cidade"
+                        maxlength="60"
+                        required
+                    >
+                </div>
+                <div class="field-group field-group-estado">
+                    <label for="estadoInput">UF</label>
+                    <input
+                        type="text"
+                        id="estadoInput"
+                        class="field-input"
+                        placeholder="-"
+                        maxlength="2"
+                        required
+                    >
+                </div>
+            </div>
+
+            <div class="aviso-seguranca">
+                <span>🔒</span>
+                <p>Seus dados são armazenados com segurança e utilizados exclusivamente para verificação de identidade e processamento de saques.</p>
+            </div>
+
+            <div id="msg-erro" class="msg-erro"></div>
+
+            <button type="button" id="btnSalvarPerfil" class="btn-primary">
+                Salvar e continuar
+            </button>
+
+            <button type="button" class="btn-pular" id="btnPular">
+                Preencher depois
+            </button>
+        </div>
+
+        <!-- TELA DE SUCESSO -->
+        <div id="tela-sucesso" class="tela-sucesso">
+            <div class="icone-ok">🎉</div>
+            <h2 class="titulo-ok">Tudo certo!</h2>
+            <p class="desc-ok">
+                Seu perfil está completo. Agora você pode criar sua lista e começar a receber presentes.
+            </p>
+            <button type="button" id="btnIrParaLista" class="btn-primary">
+                Criar minha lista
+            </button>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { firebaseConfig } from './js/firebase-config.js';
+        import { initializeApp }  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc }   from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        
+
+        const app  = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db   = getFirestore(app);
+
+        let usuarioAtual = null;
+
+        // Garante que só acessa autenticado
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                usuarioAtual = user;
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        // ── Máscara CPF ──────────────────────────────────────
+        const cpfInput = document.getElementById('cpfInput');
+        cpfInput.addEventListener('input', () => {
+            let v = cpfInput.value.replace(/\D/g, '').slice(0, 11);
+            if (v.length > 9)       v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+            else if (v.length > 6)  v = v.replace(/(\d{3})(\d{3})(\d{1,3})/,        '$1.$2.$3');
+            else if (v.length > 3)  v = v.replace(/(\d{3})(\d{1,3})/,               '$1.$2');
+            cpfInput.value = v;
+        });
+
+        // ── Máscara telefone ─────────────────────────────────
+        const telInput = document.getElementById('telefoneInput');
+        telInput.addEventListener('input', () => {
+            let v = telInput.value.replace(/\D/g, '').slice(0, 11);
+            if (v.length > 10)      v = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+            else if (v.length > 6)  v = v.replace(/(\d{2})(\d{4,5})(\d{0,4})/, '($1) $2-$3');
+            else if (v.length > 2)  v = v.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+            else                    v = v.replace(/(\d*)/, '($1');
+            telInput.value = v;
+        });
+
+        // ── Validação de CPF ─────────────────────────────────
+        function validarCPF(cpf) {
+            const nums = cpf.replace(/\D/g, '');
+            if (nums.length !== 11 || /^(\d)\1+$/.test(nums)) return false;
+            let soma = 0;
+            for (let i = 0; i < 9; i++) soma += parseInt(nums[i]) * (10 - i);
+            let r = (soma * 10) % 11;
+            if (r === 10 || r === 11) r = 0;
+            if (r !== parseInt(nums[9])) return false;
+            soma = 0;
+            for (let i = 0; i < 10; i++) soma += parseInt(nums[i]) * (11 - i);
+            r = (soma * 10) % 11;
+            if (r === 10 || r === 11) r = 0;
+            return r === parseInt(nums[10]);
+        }
+
+        // ── Lista de UFs válidas (Brasil) ────────────────────
+        const UFS_VALIDAS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+        // ── Força maiúsculas no campo UF ─────────────────────
+        const estadoInput = document.getElementById('estadoInput');
+        estadoInput.addEventListener('input', () => {
+            estadoInput.value = estadoInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+        });
+
+        // ── Mensagem de erro ─────────────────────────────────
+        const msgErro = document.getElementById('msg-erro');
+        function mostrarErro(msg) {
+            msgErro.textContent = msg;
+            msgErro.className = 'msg-erro visivel';
+        }
+        function limparErro() {
+            msgErro.textContent = '';
+            msgErro.className = 'msg-erro';
+        }
+
+        // ── Salvar perfil no Firestore ───────────────────────
+        document.getElementById('btnSalvarPerfil').addEventListener('click', async () => {
+            if (!usuarioAtual) return;
+
+            const cpf      = cpfInput.value.trim();
+            const telefone = telInput.value.trim();
+            const cidade   = document.getElementById('cidadeInput').value.trim();
+            const estado   = document.getElementById('estadoInput').value.trim().toUpperCase();
+            const btn      = document.getElementById('btnSalvarPerfil');
+
+            limparErro();
+
+            if (!cpf)      { mostrarErro('Informe seu CPF.'); return; }
+            if (!validarCPF(cpf)) { mostrarErro('CPF inválido. Verifique os números.'); return; }
+            if (telefone.replace(/\D/g,'').length < 10) {
+                mostrarErro('Informe um telefone válido com DDD.');
+                return;
+            }
+            if (!cidade) { mostrarErro('Informe sua cidade.'); return; }
+            if (!estado || !UFS_VALIDAS.includes(estado)) {
+                mostrarErro('Informe um estado (UF) válido, ex: CE, SP, RJ.');
+                return;
+            }
+
+            btn.textContent = 'Salvando...';
+            btn.disabled    = true;
+
+            try {
+                // ✅ CORRIGIDO: adicionado { merge: true } — sem isso, esse
+                // setDoc substituía o documento INTEIRO do perfil, apagando o
+                // campo termos_aceite (versão + data do aceite dos Termos de
+                // Uso/Política de Privacidade) que foi salvo na tela de
+                // cadastro, logo antes desta etapa.
+                await setDoc(doc(db, "perfis", usuarioAtual.uid), {
+                    uid:          usuarioAtual.uid,
+                    nome:         usuarioAtual.displayName || '',
+                    email:        usuarioAtual.email || '',
+                    cpf:          cpf,
+                    telefone:     telefone,
+                    cidade:       cidade,
+                    estado:       estado,
+                    criado_em:    new Date().toISOString(),
+                    perfil_completo: true
+                }, { merge: true });
+
+                // Atualiza barra de progresso
+                document.getElementById('passo2').className = 'passo completo';
+                document.getElementById('passo3').className = 'passo ativo';
+
+                // Exibe tela de sucesso
+                document.getElementById('tela-form').style.display    = 'none';
+                document.getElementById('tela-sucesso').style.display = 'block';
+
+            } catch (error) {
+                console.error('Erro ao salvar perfil:', error);
+                mostrarErro('Erro ao salvar. Tente novamente.');
+                btn.textContent = 'Salvar e continuar';
+                btn.disabled    = false;
+            }
+        });
+
+        // ── Pular por enquanto ───────────────────────────────
+        document.getElementById('btnPular').addEventListener('click', () => {
+            window.location.href = "cadastro.html";
+        });
+
+        // ── Ir para a lista ──────────────────────────────────
+        document.getElementById('btnIrParaLista').addEventListener('click', () => {
+            window.location.href = "cadastro.html";
+        });
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js")
+            .then(() => console.log("SW registrado"))
+            .catch(err => console.error("SW erro:", err));
+        });
+      }
+    </script>
+</body>
+</html>

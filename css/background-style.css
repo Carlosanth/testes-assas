@@ -1,0 +1,151 @@
+* {
+padding: 0;
+margin: 0;
+box-sizing: border-box;
+}
+
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+background: linear-gradient(-60deg, rgb(185, 32, 255), rgb(0 144 255));
+background-size: 400% 400%;
+width: 100%;
+height: 100vh;
+animation: animacao 5s ease infinite;
+display: flex;
+align-items: center;
+padding: 0 50px;
+}
+
+@keyframes animacao {
+0% { background-position: 0 50%; }
+50% { background-position: 100% 50%; }
+100% { background-position: 0 50%; }
+}
+
+.pai {
+color: white;
+max-width: 600px;
+}
+
+.apresentacao {
+font-size: 35px;
+font-weight: bold;
+text-align: center;
+}
+
+.escolha {
+font-family: Impact, sans-serif;
+font-size: 50px;
+margin: 15px 0;
+letter-spacing: 1px;
+}
+
+.apre {
+font-size: 20px;
+margin-bottom: 25px;
+line-height: 1.5;
+text-align: justify;
+}
+
+span {
+font-weight: bold;
+}
+
+.acessar {
+background-color: aliceblue;
+color: #6e20ff;
+padding: 12px 30px;
+display: flex;
+border-radius: 50px;
+font-weight: bold;
+cursor: pointer;
+transition: transform 0.1s;
+justify-content: center;
+align-items: center;
+font-size: 25px;
+}
+
+.link-acessar {
+text-decoration: none;
+color: inherit;
+display: inline-block;
+}
+
+.acessar:hover {
+transform: scale(1.05);
+background-color: #ffffff;
+}
+
+@media (min-width: 595px) {
+    .header {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        width: 100%;
+        text-align: center;
+    }
+} 
+
+@media (max-width: 595px) {
+    .header {
+        width: 100%;
+        height: 100vh;
+        animation: animacao 5s ease infinite;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+    } 
+
+    .apresentacao {
+        font-size: 33px;
+        font-weight: bold;
+        text-align: center;
+        line-height: 0.9
+    }
+
+    .escolha {
+        font-family: Impact, sans-serif;
+        font-size: 40px;
+        margin: 60px 0 20px 0;
+        letter-spacing: 1px;
+    }
+
+    .apre {
+        font-size: 20px;
+        margin-bottom: 25px;
+        line-height: 1.5;
+        text-align: justify;
+        line-height: 1.2
+    }
+
+
+        .acessar {
+        background-color: aliceblue;
+        color: #6e20ff;
+        padding: 15px 80px;
+        display: flex;
+        border-radius: 50px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.1s;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+    }
+
+        .link-acessar {
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        margin-top: 60px;
+    } 
+    
+    
+} 
+
+

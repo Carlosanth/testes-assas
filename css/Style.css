@@ -1,0 +1,1419 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  overflow-x: hidden;
+}
+
+/* ==========================================================
+   🎨 VARIÁVEIS DE TEMA — padrão navy/índigo elegante
+   ========================================================== */
+:root {
+  --acento:              #a78bfa;
+  --acento-rgb:          167, 139, 250;
+
+  /* Fundo navy (não preto — igual ao cadastro) */
+  --fundo-base:          #0f0c29;
+  --fundo-glow-1:        rgba(124, 58, 237, 0.20);
+  --fundo-glow-2:        rgba(79, 70, 229, 0.15);
+
+  /* Glassmorphism cards */
+  --glass-bg:            rgba(255, 255, 255, 0.055);
+  --glass-borda:         rgba(255, 255, 255, 0.11);
+  --glass-hover-bg:      rgba(167, 139, 250, 0.10);
+  --glass-hover-borda:   rgba(167, 139, 250, 0.35);
+
+  /* Caixa de preço */
+  --preco-bg:            rgba(167, 139, 250, 0.10);
+  --preco-borda:         rgba(167, 139, 250, 0.30);
+  --preco-glow:          rgba(167, 139, 250, 0.18);
+  --preco-texto:         #c4b5fd;
+
+  /* Botão presentear */
+  --btn-bg:              rgba(124, 58, 237, 0.70);
+  --btn-borda:           rgba(167, 139, 250, 0.50);
+  --btn-hover-bg:        rgba(124, 58, 237, 0.88);
+  --btn-texto:           #ffffff;
+  --btn-sombra:          rgba(124, 58, 237, 0.45);
+
+  /* Badge disponível */
+  --badge-disp-bg:       rgba(52, 211, 153, 0.13);
+  --badge-disp-borda:    rgba(52, 211, 153, 0.30);
+  --badge-disp-texto:    #34d399;
+
+  /* Imagem de fundo boas-vindas */
+  --imagem-fundo:        url('../img/Nos.webp');
+}
+
+/* ==========================================================
+   ☀️ MODO CLARO — ativado via JS quando cor clara é escolhida
+   ========================================================== */
+body.tema-claro {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, var(--fundo-glow-1) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, var(--fundo-glow-2) 0%, transparent 55%);
+}
+
+/* Textos dos cards no modo claro */
+body.tema-claro .titulo-produto          { color: #111 !important; }
+body.tema-claro .rotulo-preco            { color: rgba(0,0,0,0.42) !important; }
+body.tema-claro .preco                   { color: var(--preco-texto) !important; }
+body.tema-claro .cartao-produto          { box-shadow: 0 8px 32px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9) !important; }
+body.tema-claro .cartao-produto:hover    { box-shadow: 0 16px 40px rgba(0,0,0,0.14) !important; }
+body.tema-claro .btn-layout              { color: rgba(0,0,0,0.65) !important; background: rgba(255,255,255,0.8) !important; border-color: rgba(0,0,0,0.12) !important; }
+body.tema-claro .btn-layout:hover        { color: #111 !important; }
+body.tema-claro .modal-conteudo          { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.10) !important; box-shadow: 0 24px 60px rgba(0,0,0,0.18) !important; }
+body.tema-claro .modal-conteudo p        { color: rgba(0,0,0,0.55) !important; }
+body.tema-claro #nome-convidado          { background: rgba(0,0,0,0.04) !important; border-color: rgba(0,0,0,0.14) !important; color: #111 !important; }
+body.tema-claro #nome-convidado::placeholder { color: rgba(0,0,0,0.30) !important; }
+body.tema-claro .toast                   { background: rgba(255,255,255,0.97) !important; color: #111 !important; }
+
+/* ✅ NOVO: o overlay "Só um instante..." (redirecionando pro pagamento)
+   tinha o texto sempre branco (#fff), sem override pro tema claro —
+   igual o fundo dele (.overlay-redirecionando-conteudo) também fica
+   claro, o texto branco ficava invisível. Mesmo padrão do .modal-conteudo
+   acima. */
+body.tema-claro .overlay-redirecionando-conteudo { background: rgba(255,255,255,0.97) !important; border-color: rgba(0,0,0,0.10) !important; box-shadow: 0 24px 60px rgba(0,0,0,0.18) !important; }
+body.tema-claro .overlay-titulo          { color: #111 !important; }
+body.tema-claro .overlay-subtitulo       { color: rgba(0,0,0,0.55) !important; }
+
+/* Item esgotado no modo claro */
+body.tema-claro .item-esgotado .titulo-produto { color: rgba(0,0,0,0.25) !important; }
+body.tema-claro .item-esgotado .preco          { color: rgba(0,0,0,0.20) !important; }
+
+/* ==========================================================
+   🌑 BODY — navy com glows
+   ========================================================== */
+body {
+  background-color: var(--fundo-base);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, var(--fundo-glow-1) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, var(--fundo-glow-2) 0%, transparent 55%);
+  background-attachment: fixed;
+  transition: background-color 0.5s ease;
+  position: relative;
+}
+
+/* Textura adaptável — soft-light no dark, multiply no light */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("https://www.transparenttextures.com/patterns/cream-paper.png");
+  background-repeat: repeat;
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.tema-claro::before {
+  mix-blend-mode: multiply;
+  opacity: 0.18;
+}
+
+/* Conteúdo sempre acima da textura */
+.tela-boas-vindas,
+.wrapper-produtos,
+.modal-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* ==========================================================
+   🖼️ TELA DE BOAS-VINDAS
+   ========================================================== */
+.tela-boas-vindas {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
+    var(--imagem-fundo, url('../img/Nos.webp'));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: background-image 0.4s ease;
+}
+
+.tela-boas-vindas::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--acento);
+  opacity: 0.80;
+  transition: background 0.4s ease;
+}
+
+.conteudo-boas-vindas {
+  color: white;
+  padding: 24px;
+  max-width: 600px;
+  animation: fadeIn 1.2s ease-out;
+}
+
+.conteudo-boas-vindas h1 {
+  font-size: 2.6rem;
+  margin-bottom: 15px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.conteudo-boas-vindas p {
+  font-size: 1.15rem;
+  margin-bottom: 30px;
+  font-weight: 300;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.82);
+}
+
+.btn-acessar {
+  padding: 15px 38px;
+  font-size: 1rem;
+  background: rgba(var(--acento-rgb), 0.22);
+  color: #fff;
+  border: 1px solid rgba(var(--acento-rgb), 0.50);
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(var(--acento-rgb), 0.28);
+}
+
+.btn-acessar:hover {
+  background: rgba(var(--acento-rgb), 0.40);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(var(--acento-rgb), 0.42);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================
+   ⚙️ BOTÃO DE LAYOUT
+   ========================================================== */
+.controle-layout {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+  margin-bottom: 20px;
+}
+
+.btn-layout {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 10px 22px;
+  border-radius: 50px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: rgba(255,255,255,0.70);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.02em;
+}
+
+.btn-layout:hover {
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-borda);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* ==========================================================
+   📦 GRID DE PRODUTOS
+   ========================================================== */
+.wrapper-produtos {
+  padding: 8px 16px;
+  transition: padding 0.3s ease;
+}
+
+.wrapper-produtos:has(#lista-produtos.visualizacao-vertical) {
+  padding: 8px 50px;
+}
+
+#lista-produtos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  transition: gap 0.3s ease;
+}
+
+.conteudo {
+  width: 480px;
+  transition: width 0.3s ease;
+}
+
+#lista-produtos.visualizacao-vertical .conteudo {
+  width: 320px;
+}
+
+/* ==========================================================
+   🃏 CARTÃO DISPONÍVEL — com vida, borda colorida, glow
+   ========================================================== */
+.cartao-produto {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-borda);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 20px;
+  position: relative;
+
+  /* Animação de scroll nativa — entra subindo ao aparecer na tela, sai encolhendo ao sumir.
+     Suavizada: menos deslocamento/encolhimento e faixa de scroll mais curta,
+     pra não parecer que o card "atrasa" pra aparecer. */
+  animation: animacao-entrada 0.35s ease, animacao-saida 0.35s ease;
+  animation-timeline: view();
+  animation-range: entry 0% cover 18%, exit 70% exit 100%;
+}
+
+@keyframes animacao-entrada {
+  from {
+    opacity: 0.5;
+    transform: translateY(8px);
+    scale: 0.97;
+  }
+}
+
+@keyframes animacao-saida {
+  to {
+    opacity: 0.7;
+    scale: 0.97;
+  }
+}
+
+/* Linha de acento no topo do card disponível */
+.cartao-produto::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--acento), transparent);
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+.cartao-produto:hover {
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-borda);
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.28),
+    0 0 0 1px rgba(var(--acento-rgb), 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+  transform: translateY(-3px);
+}
+
+.cartao-produto:hover::before {
+  opacity: 1;
+}
+
+/* ==========================================================
+   💀 CARTÃO PRESENTEADO — apagado, sem vida
+   ========================================================== */
+.item-esgotado .cartao-produto {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.05);
+  box-shadow: none;
+  transform: none !important;
+  cursor: default;
+}
+
+/* Sem a linha colorida no topo */
+.item-esgotado .cartao-produto::before {
+  display: none;
+}
+
+.item-esgotado .cartao-produto:hover {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.05);
+  box-shadow: none;
+  transform: none;
+}
+
+.item-esgotado .imagem-produto img {
+  filter: grayscale(1) opacity(0.35);
+}
+
+.item-esgotado .titulo-produto {
+  color: rgba(255,255,255,0.30) !important;
+}
+
+.item-esgotado .preco {
+  color: rgba(255,255,255,0.25) !important;
+}
+
+.item-esgotado .caixa-preco {
+  background: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow: none !important;
+}
+
+/* Lacinho "Ganhamos!" em dourado/âmbar */
+.item-esgotado .acoes .botao {
+  background: rgba(245, 166, 35, 0.10);
+  border-color: rgba(245, 166, 35, 0.28);
+  color: rgba(245, 166, 35, 0.65);
+  box-shadow: none;
+  cursor: default;
+}
+
+/* ==========================================================
+   🖼️ IMAGEM
+   ========================================================== */
+.imagem-produto {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 45%;
+}
+
+.imagem-produto img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid rgba(var(--acento-rgb), 0.18);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.30);
+  transition: all 0.3s;
+}
+
+/* ==========================================================
+   📝 DETALHES
+   ========================================================== */
+.detalhes-produto {
+  flex: 1.2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.titulo-produto {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 2px;
+  transition: color 0.3s;
+}
+
+/* ==========================================================
+   💰 CAIXA DE PREÇO
+   ========================================================== */
+.rodape-produto {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caixa-preco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  width: 100%;
+  background: var(--preco-bg);
+  border: 1px solid var(--preco-borda);
+  box-shadow: 0 0 18px var(--preco-glow);
+  transition: all 0.3s;
+}
+
+.rotulo-preco {
+  font-size: 11px;
+  color: rgba(255,255,255,0.40);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.preco {
+  margin-top: 3px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--preco-texto);
+  transition: color 0.3s;
+}
+
+/* ==========================================================
+   ✅ BADGE DISPONÍVEL / INDISPONÍVEL
+   ========================================================== */
+.disponibilidade.disponivel {
+  margin-top: 6px;
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 50px;
+  background: var(--badge-disp-bg);
+  border: 1px solid var(--badge-disp-borda);
+  color: var(--badge-disp-texto);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: all 0.3s;
+}
+
+.disponibilidade.indisponivel {
+  margin-top: 6px;
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 50px;
+  background: rgba(245, 166, 35, 0.10);
+  border: 1px solid rgba(245, 166, 35, 0.25);
+  color: rgba(245, 166, 35, 0.70);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ==========================================================
+   🎀 BOTÕES
+   ========================================================== */
+.acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Botão genérico (fallback) */
+.botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  padding: 11px 14px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  color: rgba(255,255,255,0.65);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+/* Botão PRESENTEAR — vibrante como o "Adicionar item" do cadastro */
+.botao.primario {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-borda);
+  color: var(--btn-texto);
+  font-weight: 700;
+  border-radius: 50px;
+  box-shadow: 0 4px 20px var(--btn-sombra);
+  transition: all 0.2s ease;
+}
+
+.botao.primario:hover {
+  background: var(--btn-hover-bg);
+  box-shadow: 0 8px 28px var(--btn-sombra);
+  transform: translateY(-2px);
+}
+
+.botao.primario:active {
+  transform: scale(0.96);
+}
+
+/* ==========================================================
+   🔔 TOAST
+   ========================================================== */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: rgba(15, 12, 41, 0.96);
+  border: 1px solid rgba(var(--acento-rgb), 0.30);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: transform 0.3s ease;
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  backdrop-filter: blur(12px);
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ==========================================================
+   📋 MODAL
+   ========================================================== */
+.modal-container {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.modal-container.mostrar {
+  display: flex !important;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-conteudo {
+  background: rgba(15, 10, 40, 0.97);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(var(--acento-rgb), 0.28);
+  box-shadow:
+    0 24px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(var(--acento-rgb), 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  padding: 30px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  animation: popIn 0.22s ease;
+}
+
+.modal-conteudo h3 {
+  color: var(--acento);
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.modal-conteudo p {
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.90); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+#nome-convidado {
+  width: 100%;
+  padding: 13px 18px;
+  border: 1px solid rgba(255,255,255,0.13);
+  background: rgba(255,255,255,0.07);
+  border-radius: 50px;
+  font-size: 15px;
+  margin-bottom: 20px;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+#nome-convidado::placeholder {
+  color: rgba(255,255,255,0.28);
+}
+
+#nome-convidado:focus {
+  border-color: rgba(var(--acento-rgb), 0.60);
+  background: rgba(var(--acento-rgb), 0.07);
+  box-shadow: 0 0 0 3px rgba(var(--acento-rgb), 0.12);
+}
+
+.modal-botoes {
+  display: flex;
+  gap: 12px;
+}
+
+/* ==========================================================
+   🔀 VISUALIZAÇÃO VERTICAL
+   ========================================================== */
+#lista-produtos.visualizacao-vertical { gap: 15px; }
+
+#lista-produtos.visualizacao-vertical .cartao-produto {
+  flex-direction: column;
+  padding: 18px;
+  text-align: center;
+}
+
+#lista-produtos.visualizacao-vertical .imagem-produto {
+  max-width: 100%;
+  width: 100%;
+  padding: 4px 6px 10px;
+}
+
+#lista-produtos.visualizacao-vertical .titulo-produto {
+  text-align: center;
+  margin: 2px 0 8px;
+}
+
+/* ==========================================================
+   📱 RESPONSIVIDADE
+   ========================================================== */
+@media (max-width: 450px) {
+  .conteudo { width: 100%; max-width: 100%; }
+
+  #lista-produtos.visualizacao-vertical .conteudo {
+    max-width: 88% !important;
+    margin: 0 auto;
+  }
+
+  .wrapper-produtos { padding: 8px 11px !important; }
+
+  .wrapper-produtos:has(#lista-produtos.visualizacao-vertical) {
+    padding: 8px 24px !important;
+  }
+
+  .cartao-produto {
+    flex-direction: row !important;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  #lista-produtos.visualizacao-vertical .cartao-produto {
+    flex-direction: column !important;
+  }
+
+  .imagem-produto { max-width: 40%; }
+  #lista-produtos.visualizacao-vertical .imagem-produto { max-width: 100%; }
+
+  .titulo-produto { font-size: 15px !important; }
+  .botao { font-size: 13px !important; padding: 11px 6px !important; }
+  .preco { font-size: 16px; }
+  .conteudo-boas-vindas h1 { font-size: 1.9rem; }
+}
+/* ==========================================================
+   ⏳ CONTAGEM REGRESSIVA
+   ========================================================== */
+.countdown-bloco {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 20px auto 28px;
+  padding: 18px 28px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 20px;
+  max-width: 380px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.22);
+}
+
+.cd-evento-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: rgba(255,255,255,0.65);
+}
+
+.cd-unidades {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cd-unidade {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 52px;
+}
+
+.cd-valor {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 24px rgba(var(--acento-rgb), 0.55);
+}
+
+.cd-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.45);
+}
+
+.cd-sep {
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 14px;
+}
+
+/* Modo claro */
+body.tema-claro .countdown-bloco {
+  background: rgba(255,255,255,0.75);
+  border-color: rgba(0,0,0,0.10);
+}
+body.tema-claro .cd-valor { color: #111; text-shadow: none; }
+body.tema-claro .cd-evento-label { color: rgba(0,0,0,0.55); }
+body.tema-claro .cd-label { color: rgba(0,0,0,0.40); }
+body.tema-claro .cd-sep { color: rgba(0,0,0,0.25); }
+
+/* ==========================================================
+   🏷️ CHIPS DE CATEGORIA
+   ========================================================== */
+.controle-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 28px;
+  margin-bottom: 20px;
+}
+
+.filtro-categorias {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chip-categoria {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.60);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.chip-categoria:hover {
+  background: rgba(var(--acento-rgb), 0.12);
+  border-color: rgba(var(--acento-rgb), 0.35);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.chip-categoria.ativo {
+  background: rgba(var(--acento-rgb), 0.22);
+  border-color: rgba(var(--acento-rgb), 0.55);
+  color: var(--acento);
+  box-shadow: 0 0 12px rgba(var(--acento-rgb), 0.20);
+}
+
+/* Modo claro */
+body.tema-claro .chip-categoria {
+  background: rgba(255,255,255,0.80);
+  border-color: rgba(0,0,0,0.10);
+  color: rgba(0,0,0,0.55);
+}
+body.tema-claro .chip-categoria:hover {
+  background: rgba(255,255,255,0.97);
+  color: #111;
+}
+body.tema-claro .chip-categoria.ativo {
+  background: rgba(var(--acento-rgb), 0.12);
+  border-color: rgba(var(--acento-rgb), 0.40);
+  color: var(--acento);
+}
+
+@media (max-width: 450px) {
+  .cd-valor { font-size: 1.8rem; }
+  .cd-unidade { min-width: 42px; }
+  .countdown-bloco { padding: 14px 16px; }
+}
+
+/* ================================================================
+   SISTEMA DE COTAS — lista do convidado
+================================================================ */
+
+/* Tag de cotas no card do produto */
+.tag-cotas-lista {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--acento, #a78bfa);
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
+
+/* Botão "Contribuir com cota" */
+.botao-cota {
+  margin-top: 8px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--btn-borda, rgba(167,139,250,0.4));
+  background: transparent;
+  color: var(--acento, #a78bfa);
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+}
+.botao-cota:hover {
+  background: var(--glass-hover-bg, rgba(167,139,250,0.1));
+  border-color: var(--acento, #a78bfa);
+}
+
+/* Badge de cotas disponíveis dentro do botão */
+.badge-cotas-disp {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: var(--acento, #7c3aed);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* Modal de cotas */
+.modal-cotas-conteudo {
+  max-width: 360px;
+  width: 100%;
+}
+
+.modal-cotas-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.modal-cotas-header h3 {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.modal-cotas-icone {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.modal-cotas-subtitulo {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  margin: 0;
+}
+
+.modal-cotas-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.18);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.modal-cotas-por-cota {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+}
+.modal-cotas-por-cota strong {
+  color: var(--acento, #a78bfa);
+}
+.modal-cotas-disp {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+}
+
+.modal-cotas-pergunta {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: rgba(255,255,255,0.8);
+}
+
+/* (bloco antigo de cotas removido — substituído pela grade de assentos abaixo) */
+
+/* ================================================================
+   X DE FECHAR NOS MODAIS
+================================================================ */
+.modal-fechar-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .18s, transform .15s;
+  z-index: 5;
+}
+.modal-fechar-x:hover {
+  background: #ef4444;
+  color: #fff;
+  transform: scale(1.08);
+}
+.modal-conteudo {
+  position: relative; /* necessário para o X absoluto */
+}
+
+/* ================================================================
+   MODAL DE ESCOLHA — "Presentear tudo" ou "Contribuir com cota"
+================================================================ */
+.modal-escolha-conteudo {
+  text-align: left;
+}
+.modal-escolha-titulo {
+  color: var(--acento);
+  font-size: 17px;
+  margin: 0 0 2px;
+  padding-right: 30px; /* espaço pro X */
+}
+.modal-escolha-sub {
+  color: rgba(255,255,255,0.5);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+
+.opcao-escolha {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 10px;
+  transition: background .18s, border-color .18s, transform .12s;
+}
+.opcao-escolha:hover {
+  transform: translateY(-2px);
+}
+.opcao-escolha-emoji {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.opcao-escolha-textos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.opcao-escolha-titulo {
+  font-size: 14px;
+  font-weight: 700;
+}
+.opcao-escolha-valor {
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+}
+
+.opcao-tudo {
+  border-color: rgba(34,197,94,0.30);
+  background: rgba(34,197,94,0.08);
+}
+.opcao-tudo:hover {
+  border-color: rgba(34,197,94,0.55);
+  background: rgba(34,197,94,0.14);
+}
+.opcao-tudo .opcao-escolha-valor { color: #4ade80; }
+
+.opcao-cota {
+  border-color: rgba(var(--acento-rgb), 0.30);
+  background: rgba(var(--acento-rgb), 0.08);
+}
+.opcao-cota:hover {
+  border-color: rgba(var(--acento-rgb), 0.55);
+  background: rgba(var(--acento-rgb), 0.14);
+}
+.opcao-cota .opcao-escolha-valor { color: var(--acento); }
+
+/* ================================================================
+   MODAL DE COTAS — reformulado, valor por cota sempre fixo e visível
+================================================================ */
+.modal-cotas-conteudo {
+  max-width: 360px;
+  width: 100%;
+  text-align: left;
+}
+
+.modal-cotas-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-right: 26px; /* espaço pro X */
+}
+.modal-cotas-header h3 {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: left;
+}
+.modal-cotas-icone {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.modal-cotas-subtitulo {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  margin: 0;
+}
+
+/* Caixa de destaque com o valor FIXO da cota — não muda nunca */
+.modal-cotas-valor-fixo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(var(--acento-rgb), 0.10);
+  border: 1.5px solid rgba(var(--acento-rgb), 0.30);
+  margin-bottom: 16px;
+}
+.modal-cotas-valor-fixo span {
+  font-size: 13px;
+  color: rgba(255,255,255,0.65);
+}
+.modal-cotas-valor-fixo strong {
+  font-size: 20px;
+  color: var(--acento);
+  font-weight: 800;
+}
+
+.modal-cotas-pergunta {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: rgba(255,255,255,0.8);
+  text-align: left;
+}
+
+/* Grade de botões de cota — cada um mostra só o valor (R$ X,XX).
+   O convidado toca em quantos quiser; selecionados ficam roxos. */
+.grade-btns-cota {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.btn-cota-valor {
+  padding: 14px 10px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: background .16s, border-color .16s, transform .12s;
+}
+.btn-cota-valor:hover:not(.ocupada) {
+  border-color: var(--acento);
+  background: rgba(var(--acento-rgb), 0.12);
+  transform: translateY(-2px);
+}
+.btn-cota-valor.selecionada {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(var(--acento-rgb), 0.25);
+  transform: translateY(-2px);
+}
+.btn-cota-valor.ocupada {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.25);
+  cursor: not-allowed;
+  font-size: 18px;
+}
+
+/* Resumo dinâmico abaixo dos botões */
+.modal-cotas-resumo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(var(--acento-rgb), 0.06);
+  border: 1px dashed rgba(var(--acento-rgb), 0.30);
+  font-size: 13px;
+}
+#cotas-resumo-txt  { color: rgba(255,255,255,0.6); }
+#cotas-resumo-total {
+  color: var(--acento);
+  font-size: 16px;
+  font-weight: 800;
+}
+#btn-confirmar-cotas:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Tag de cotas no card do produto */
+.tag-cotas-lista {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--acento);
+  opacity: 0.9;
+  letter-spacing: 0.01em;
+}
+
+/* ================================================================
+   MODO CLARO — corrige contraste dos novos elementos
+================================================================ */
+body.tema-claro .modal-fechar-x {
+  background: rgba(239, 68, 68, 0.10);
+}
+
+body.tema-claro .opcao-escolha {
+  background: rgba(0,0,0,0.025);
+  border-color: rgba(0,0,0,0.08);
+  color: #111;
+}
+body.tema-claro .opcao-escolha-valor {
+  color: rgba(0,0,0,0.55);
+}
+body.tema-claro .opcao-tudo {
+  background: rgba(34,197,94,0.07);
+  border-color: rgba(34,197,94,0.35);
+}
+body.tema-claro .opcao-cota {
+  background: rgba(var(--acento-rgb), 0.06);
+  border-color: rgba(var(--acento-rgb), 0.35);
+}
+
+body.tema-claro .modal-cotas-subtitulo,
+body.tema-claro .modal-cotas-valor-fixo span,
+body.tema-claro .modal-cotas-pergunta {
+  color: rgba(0,0,0,0.55);
+}
+body.tema-claro .modal-cotas-pergunta {
+  color: rgba(0,0,0,0.78);
+}
+body.tema-claro .modal-cotas-valor-fixo {
+  background: rgba(var(--acento-rgb), 0.07);
+  border-color: rgba(var(--acento-rgb), 0.35);
+}
+body.tema-claro .btn-cota-valor:not(.ocupada) {
+  background: rgba(0,0,0,0.025);
+  border-color: rgba(0,0,0,0.12);
+  color: #111;
+}
+body.tema-claro .btn-cota-valor:hover:not(.ocupada) {
+  background: rgba(var(--acento-rgb), 0.10);
+}
+body.tema-claro .modal-cotas-resumo {
+  background: rgba(var(--acento-rgb), 0.05);
+}
+body.tema-claro #cotas-resumo-txt {
+  color: rgba(0,0,0,0.55);
+}
+body.tema-claro .tag-cotas-lista {
+  opacity: 1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   OVERLAY DE REDIRECIONAMENTO PARA PAGAMENTO
+   ════════════════════════════════════════════════════════════ */
+.overlay-redirecionando {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--fundo-base) 78%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.overlay-redirecionando.ativo {
+  display: flex;
+  opacity: 1;
+}
+
+.overlay-redirecionando-conteudo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 40px;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-borda);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  max-width: 320px;
+}
+
+.overlay-spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(var(--acento-rgb), 0.25);
+  border-top-color: var(--acento);
+  animation: overlay-girar 0.8s linear infinite;
+}
+
+@keyframes overlay-girar {
+  to { transform: rotate(360deg); }
+}
+
+.overlay-titulo {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.overlay-subtitulo {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+/* ================================================================
+   RODAPÉ DO SITE — links legais, contato e redes sociais
+================================================================ */
+.site-footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 24px;
+    padding: 28px 32px 32px;
+    border-top: 1px solid rgba(167, 139, 250, 0.15);
+}
+.footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 24px;
+    text-align: center;
+}
+.footer-brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.75);
+    width: 100%;
+}
+.footer-links a,
+.footer-contato a,
+.footer-social a {
+    color: rgba(255,255,255,0.55);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color .18s;
+}
+.footer-links a:hover,
+.footer-contato a:hover,
+.footer-social a:hover {
+    color: #a78bfa;
+}
+.footer-sep {
+    color: rgba(255,255,255,0.25);
+    margin: 0 2px;
+}
+.footer-social {
+    display: flex;
+    gap: 16px;
+}
+.footer-copy {
+    width: 100%;
+    font-size: 11px;
+    color: rgba(255,255,255,0.30);
+    margin-top: 4px;
+}
+
+/* Modo claro — mesmo padrão usado no resto do arquivo */
+body.tema-claro .site-footer { border-top-color: rgba(124,58,237,0.15) !important; }
+body.tema-claro .footer-brand { color: rgba(0,0,0,0.65) !important; }
+body.tema-claro .footer-links a,
+body.tema-claro .footer-contato a,
+body.tema-claro .footer-social a { color: rgba(0,0,0,0.50) !important; }
+body.tema-claro .footer-links a:hover,
+body.tema-claro .footer-contato a:hover,
+body.tema-claro .footer-social a:hover { color: #7c3aed !important; }
+body.tema-claro .footer-sep { color: rgba(0,0,0,0.20) !important; }
+body.tema-claro .footer-copy { color: rgba(0,0,0,0.30) !important; }
+
+@media (max-width: 480px) {
+    .site-footer { padding: 24px 20px 28px; }
+    .footer-inner { gap: 8px 16px; }
+}

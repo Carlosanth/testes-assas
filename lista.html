@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lista de Presentes</title>
+    <link rel="stylesheet" href="css/Style.css" />
+  </head>
+  <body>
+
+    <!-- ✅ NOVO: overlay de transição enquanto o pagamento é processado no
+         back-end (Cloud Function → Make → InfinitePay), pra o convidado não
+         achar que travou enquanto espera o redirecionamento. -->
+    <div id="overlay-redirecionando" class="overlay-redirecionando" aria-hidden="true">
+        <div class="overlay-redirecionando-conteudo">
+            <div class="overlay-spinner"></div>
+            <p class="overlay-titulo">Só um instante…</p>
+            <p class="overlay-subtitulo">Estamos te encaminhando para o pagamento</p>
+        </div>
+    </div>
+
+    <div class="tela-boas-vindas">
+        <div class="conteudo-boas-vindas">
+            <h1>Sejam Bem-Vindos ao Nosso Sonho!</h1>
+            <p>Ficamos muito felizes em compartilhar este momento tão especial com você. Navegue pela nossa lista e nos ajude a montar o nosso novo lar!</p>
+
+            <!-- CONTAGEM REGRESSIVA -->
+            <div id="countdown-bloco" class="countdown-bloco" style="display:none;">
+                <span class="cd-evento-label">Faltam para o grande dia</span>
+                <div class="cd-unidades">
+                    <div class="cd-unidade">
+                        <span class="cd-valor" id="cd-dias">00</span>
+                        <span class="cd-label">dias</span>
+                    </div>
+                    <span class="cd-sep">:</span>
+                    <div class="cd-unidade">
+                        <span class="cd-valor" id="cd-horas">00</span>
+                        <span class="cd-label">horas</span>
+                    </div>
+                    <span class="cd-sep">:</span>
+                    <div class="cd-unidade">
+                        <span class="cd-valor" id="cd-min">00</span>
+                        <span class="cd-label">min</span>
+                    </div>
+                    <span class="cd-sep">:</span>
+                    <div class="cd-unidade">
+                        <span class="cd-valor" id="cd-seg">00</span>
+                        <span class="cd-label">seg</span>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-acessar" onclick="rolarParaLista()">Acessar Lista de Presentes</button>
+        </div>
+    </div>
+    
+    <div class="wrapper-produtos">
+        <div class="controle-layout">
+          <!-- CHIPS DE CATEGORIA -->
+          <div id="filtro-categorias" class="filtro-categorias"></div>
+
+          <button id="btn-alternar-layout" class="btn-layout">
+            <span class="icone-layout">📱</span> Alternar Visualização
+          </button>
+        </div>
+
+        <div id="lista-produtos"></div>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-brand">✦ Escolha Seu Presente</div>
+            <nav class="footer-links">
+                <a href="/termos.html">Termos de Uso</a>
+                <span class="footer-sep">·</span>
+                <a href="/privacidade.html">Política de Privacidade</a>
+            </nav>
+            <div class="footer-contato">
+                <a href="mailto:escolhseupresente@gmail.com">escolhseupresente@gmail.com</a>
+            </div>
+            <div class="footer-social">
+                <a href="https://www.instagram.com/escolhaseupresente?utm_source=qr&amp;igsh=MWdmbmZ1Y3hoNTlyeQ%3D%3D" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a href="[LINK_TIKTOK]" target="_blank" rel="noopener noreferrer">TikTok</a>
+            </div>
+            <div class="footer-copy">© 2026 Escolha Seu Presente. Todos os direitos reservados.</div>
+        </div>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script src="js/monitoring.js"></script>
+    <script src="js/script.js"></script>
+
+    <script>
+      function rolarParaLista() {
+          const elementoLista = document.querySelector('.wrapper-produtos');
+          if (elementoLista) {
+              elementoLista.scrollIntoView({ behavior: 'smooth' });
+          }
+      }
+    </script>
+
+    <div id="modal-nome" class="modal-container">
+      <div class="modal-conteudo">
+        <button type="button" class="modal-fechar-x" id="btn-fechar-modal-x" aria-label="Fechar">✕</button>
+        <h3>Falta bem pouquinho!</h3>
+        <p>Para organizarmos os presentes, informe o seu nome e sobrenome:</p>
+            
+        <input type="text" id="nome-convidado" data-testid="input-nome-convidado" placeholder="Digite seu nome completo aqui..." required />
+            
+        <div class="modal-botoes">
+          <button id="btn-cancelar-modal" class="botao">Voltar</button>
+          <button id="btn-confirmar-modal" data-testid="btn-confirmar-modal" class="botao primario">Confirmar Presente</button>
+        </div>
+      </div>
+    </div>
+    
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "Escolha Seu Presente",
+  "short_name": "Escolha seu Presente",
+  "description": "Sua lista de presentes personalizada",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#110a1f",
+  "theme_color": "#110a1f",
+  "icons": [
+    {
+      "src": "img/icon-192.jpg",
+      "sizes": "192x192",
+      "type": "image/jpg"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+

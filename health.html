@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Status do Sistema — Escolha Seu Presente</title>
+<meta name="robots" content="noindex">
+<style>
+  body { font-family: monospace; background:#0d1117; color:#c9d1d9; padding:2rem; }
+  .healthy { color:#3fb950; } .degraded { color:#d29922; } .unhealthy { color:#f85149; } .checking { color:#8b949e; }
+  pre { background:#161b22; padding:1rem; border-radius:8px; overflow:auto; }
+  h1 { font-size:1.1rem; }
+</style>
+</head>
+<body>
+  <h1>Status: <span id="status" class="checking">verificando…</span></h1>
+  <pre id="output">carregando…</pre>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/monitoring.js"></script>
+  <script type="module">
+    import { firebaseConfig, cloudFunctions } from './js/firebase-config.js';
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function check() {
+      const report = await Monitoring.runHealthCheck({
+        db: db,
+        functionsBaseUrl: cloudFunctions.confirmarPagamento
+      });
+
+      document.getElementById('status').textContent = report.status;
+      document.getElementById('status').className = report.status;
+      document.getElementById('output').textContent = JSON.stringify(report, null, 2);
+
+      // Também expõe no <html data-health-status> pra um monitor externo
+      // que só lê o DOM (sem parsear JSON) conseguir checar rapidamente.
+      document.documentElement.setAttribute('data-health-status', report.status);
+    }
+
+    check();
+    // Uptime monitors normalmente batem essa página a cada 1-5 min;
+    // o auto-refresh aqui é só pra quem deixar a aba aberta olhando.
+    setInterval(check, 60000);
+  </script>
+</body>
+</html>

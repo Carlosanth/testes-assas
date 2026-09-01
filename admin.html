@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin · Escolha Seu Presente</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#110a1f">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        /* ✅ NOVO: painéis retráteis do Banco de Imagens */
+        .painel-colapsavel {
+            background: var(--surface1, #1a1530);
+            border: 1px solid var(--border1, rgba(255,255,255,0.08));
+            border-radius: 12px;
+            margin-top: 16px;
+            overflow: hidden;
+        }
+        .painel-colapsavel-header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 18px;
+            background: none;
+            border: none;
+            color: var(--text, #fff);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: left;
+        }
+        .painel-colapsavel-header:hover { background: rgba(255,255,255,0.03); }
+        .painel-colapsavel-seta {
+            font-size: 11px;
+            color: var(--text3, #888);
+            transition: transform .15s ease;
+        }
+        .painel-colapsavel-header.aberto .painel-colapsavel-seta { transform: rotate(90deg); }
+        .painel-colapsavel-corpo { border-top: 1px solid var(--border1, rgba(255,255,255,0.08)); }
+    </style>
+</head>
+<body>
+
+<!-- ===== TELA DE LOGIN ===== -->
+<div id="tela-login">
+    <div class="login-box">
+        <div class="login-logo">
+            <div class="badge">Admin</div>
+            <h1>Escolha Seu Presente</h1>
+            <p>Painel de gerenciamento</p>
+        </div>
+        <input type="email" id="loginEmail" class="campo-login" placeholder="E-mail do administrador">
+        <input type="password" id="loginSenha" class="campo-login" placeholder="Senha">
+        <button class="btn-entrar" id="btnEntrar">Entrar</button>
+        <div class="login-erro" id="loginErro"></div>
+    </div>
+</div>
+
+<!-- ===== PAINEL ADMIN ===== -->
+<div id="painel">
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="badge">Admin</div>
+            <h2>Escolha Seu Presente</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item ativo" data-secao="visao-geral">
+                <span class="icon">📊</span><span>Visão Geral</span>
+            </button>
+            <button class="nav-item" data-secao="clientes">
+                <span class="icon">👥</span><span>Clientes</span>
+            </button>
+            <button class="nav-item" data-secao="saques" id="navBtnSaques">
+                <span class="icon">💸</span><span>Saques</span>
+                <span id="badgeSaquesPendentes" style="display:none; background:#ef4444; color:#fff; font-size:10px; font-weight:700; border-radius:50px; padding:1px 6px; margin-left:4px; min-width:16px; text-align:center; line-height:16px;">0</span>
+            </button>
+            <button class="nav-item" data-secao="relatorio">
+                <span class="icon">📋</span><span>Relatório</span>
+            </button>
+            <button class="nav-item" data-secao="listas-prontas">
+                <span class="icon">🎁</span><span>Listas Prontas</span>
+            </button>
+            <button class="nav-item" data-secao="banco-imagens">
+                <span class="icon">🖼️</span><span>Banco de Imagens</span>
+            </button>
+            <button class="nav-item" data-secao="comunicados">
+                <span class="icon">📢</span><span>Comunicados</span>
+            </button>
+            <button class="nav-item" data-secao="configuracoes">
+                <span class="icon">⚙️</span><span>Configurações</span>
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-sair-admin" id="btnSairAdmin">
+                <span>🚪</span> Sair
+            </button>
+        </div>
+    </aside>
+
+    <main class="main">
+        <!-- TOPBAR -->
+        <div class="topbar">
+            <div>
+                <h1 id="tituloPagina">Visão Geral</h1>
+                <div class="topbar-sub" id="subtituloPagina">Dados em tempo real</div>
+            </div>
+            <button id="btnAtualizarPainel" style="margin-left:auto;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;padding:7px 16px;border-radius:50px;font-size:12px;font-weight:600;cursor:pointer;" title="Recarregar produtos, clientes e perfis">
+                🔄 Atualizar dados
+            </button>
+            <button onclick="window.print()" style="background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);color:#a78bfa;padding:7px 16px;border-radius:50px;font-size:12px;font-weight:600;cursor:pointer;" title="Imprimir ou salvar como PDF">
+                🖨️ Imprimir / PDF
+            </button>
+            <div class="badge-live" title="Saques e listas prontas continuam em tempo real">
+                <div class="dot-live"></div> Ao vivo
+            </div>
+        </div>
+
+        <!-- ===== SEÇÃO: VISÃO GERAL ===== -->
+        <section class="secao ativa" id="secao-visao-geral">
+            <div class="grid-metricas">
+                <div class="card-metrica roxo">
+                    <div class="metrica-icon">👥</div>
+                    <div class="metrica-label">Clientes cadastrados</div>
+                    <div class="metrica-valor" id="metricaClientes">—</div>
+                    <div class="metrica-sub">usuários ativos</div>
+                </div>
+                <div class="card-metrica azul">
+                    <div class="metrica-icon">🎁</div>
+                    <div class="metrica-label">Listas de presentes</div>
+                    <div class="metrica-valor" id="metricaListas">—</div>
+                    <div class="metrica-sub">itens no total</div>
+                </div>
+                <div class="card-metrica verde">
+                    <div class="metrica-icon">✅</div>
+                    <div class="metrica-label">Presentes entregues</div>
+                    <div class="metrica-valor" id="metricaEntregues">—</div>
+                    <div class="metrica-sub">pagamentos confirmados</div>
+                </div>
+                <div class="card-metrica amarelo">
+                    <div class="metrica-icon">🔮</div>
+                    <div class="metrica-label">Lucro previsto</div>
+                    <div class="metrica-valor" id="metricaLucro">—</div>
+                    <div class="metrica-sub">itens ainda disponíveis · <span id="taxaAtualLabel">2,8</span>%</div>
+                </div>
+                <div class="card-metrica verde-escuro">
+                    <div class="metrica-icon">💸</div>
+                    <div class="metrica-label">Lucro real</div>
+                    <div class="metrica-valor" id="metricaLucroReal">—</div>
+                    <div class="metrica-sub" id="metricaLucroRealSub">presentes já entregues</div>
+                </div>
+            </div>
+
+            <!-- Resumo financeiro consolidado -->
+            <div class="card-tabela" style="margin-bottom:20px;">
+                <div class="card-tabela-header">
+                    <h3>💼 Resumo financeiro</h3>
+                    <span style="font-size:11px; color:var(--text3);">Acumulado total</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--border);">
+                    <div style="background:var(--surface); padding:16px 20px;">
+                        <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Total movimentado</div>
+                        <div id="resumoTotalMovimentado" style="font-size:20px; font-weight:700; font-family:var(--mono); color:var(--text);">—</div>
+                        <div style="font-size:11px; color:var(--text3); margin-top:2px;">soma dos presentes pagos</div>
+                    </div>
+                    <div style="background:var(--surface); padding:16px 20px;">
+                        <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Já sacado pelos clientes</div>
+                        <div id="resumoJaSacado" style="font-size:20px; font-weight:700; font-family:var(--mono); color:#60a5fa;">—</div>
+                        <div style="font-size:11px; color:var(--text3); margin-top:2px;">repasses realizados</div>
+                    </div>
+                    <div style="background:var(--surface); padding:16px 20px;">
+                        <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Aguardando saque</div>
+                        <div id="resumoAguardando" style="font-size:20px; font-weight:700; font-family:var(--mono); color:#fbbf24;">—</div>
+                        <div style="font-size:11px; color:var(--text3); margin-top:2px;">disponível para clientes</div>
+                    </div>
+                    <div style="background:var(--surface); padding:16px 20px;">
+                        <div style="font-size:11px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Minha receita líquida</div>
+                        <div id="resumoMinhaReceita" style="font-size:20px; font-weight:700; font-family:var(--mono); color:#34d399;">—</div>
+                        <div style="font-size:11px; color:var(--text3); margin-top:2px;">taxa retida acumulada</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-tabela" style="margin-bottom:20px;">
+                <div class="card-tabela-header">
+                    <h3>📈 Presentes recebidos por mês</h3>
+                    <span style="font-size:11px; color:var(--text3);">Últimos 6 meses</span>
+                </div>
+                <div id="graficoMensal" style="padding:20px 10px 10px;"></div>
+            </div>
+
+            <div class="card-tabela" style="margin-bottom:20px;">
+                <div class="card-tabela-header">
+                    <h3>💰 Meu lucro por mês</h3>
+                    <span style="font-size:11px; color:var(--text3);">Últimos 6 meses</span>
+                </div>
+                <div id="graficoLucroMensal" style="padding:20px 10px 10px;"></div>
+            </div>
+
+            <!-- Gráfico de pizza por categoria -->
+            <div class="card-tabela" style="margin-bottom:20px;">
+                <div class="card-tabela-header">
+                    <h3>🥧 Presentes por categoria</h3>
+                    <span style="font-size:11px; color:var(--text3);">Distribuição dos pagos</span>
+                </div>
+                <div id="graficoCategorias" style="padding:20px;"></div>
+            </div>
+
+            <div class="card-tabela">
+                <div class="card-tabela-header">
+                    <h3>Últimos presentes recebidos</h3>
+                    <span id="labelUltimosPresentes">carregando...</span>
+                </div>
+                <div class="card-tabela-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Convidado</th>
+                            <th>Presente</th>
+                            <th>Valor original</th>
+                            <th>Meu lucro</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaUltimos">
+                        <tr class="loading-row"><td colspan="5">Carregando...</td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SEÇÃO: CLIENTES ===== -->
+        <section class="secao" id="secao-clientes">
+            <div class="config-saque-card">
+                <label for="buscaClientes">🔍 Buscar cliente</label>
+                <input type="text" id="buscaClientes" placeholder="Nome ou e-mail..." style="width:220px;">
+                <label for="filtroAnoClientes">📅 Ano de cadastro</label>
+                <select id="filtroAnoClientes">
+                    <option value="">Todos os anos</option>
+                </select>
+                <span style="font-size:11px; color: var(--text3);">Clientes com ⏰ já completaram 1 ano — revise para exclusão manual.</span>
+            </div>
+            <div class="card-tabela">
+                <div class="card-tabela-header">
+                    <h3>Todos os clientes</h3>
+                    <span id="labelTotalClientes">—</span>
+                </div>
+                <div class="card-tabela-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>E-mail</th>
+                            <th>Cidade/UF</th>
+                            <th>Cadastrado em</th>
+                            <th>Itens cadastrados</th>
+                            <th title="Itens totalmente presenteados (cotas 100% pagas)">Presentes fechados</th>
+                            <th>Total recebido</th>
+                            <th>Meu lucro</th>
+                            <th>Saldo pendente</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaClientes">
+                        <tr class="loading-row"><td colspan="9">Carregando...</td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SEÇÃO: SAQUES ===== -->
+        <section class="secao" id="secao-saques">
+            <!-- Resumo financeiro de saques -->
+            <div class="grid-metricas" style="margin-bottom:20px;">
+                <div class="card-metrica amarelo">
+                    <div class="metrica-icon">⏳</div>
+                    <div class="metrica-label">Pendente a pagar</div>
+                    <div class="metrica-valor" id="saqPendente">—</div>
+                    <div class="metrica-sub" id="saqPendenteQtd">solicitações</div>
+                </div>
+                <div class="card-metrica verde">
+                    <div class="metrica-icon">✅</div>
+                    <div class="metrica-label">Total já pago</div>
+                    <div class="metrica-valor" id="saqPago">—</div>
+                    <div class="metrica-sub" id="saqPagoQtd">repasses realizados</div>
+                </div>
+                <div class="card-metrica azul">
+                    <div class="metrica-icon">💰</div>
+                    <div class="metrica-label">Meu lucro nos saques</div>
+                    <div class="metrica-valor" id="saqLucro">—</div>
+                    <div class="metrica-sub">taxa retida total</div>
+                </div>
+            </div>
+
+            <div class="config-saque-card">
+                <label for="inputValorMinimoSaque">💰 Valor mínimo para saque</label>
+                <input type="tel" id="inputValorMinimoSaque" placeholder="R$ 0,00">
+                <button class="btn-salvar-config" id="btnSalvarValorMinimo">Salvar</button>
+                <span style="font-size:11px; color: var(--text3);">Vale para todos os clientes.</span>
+            </div>
+
+            <div class="card-tabela" style="margin-bottom:20px;">
+                <div class="card-tabela-header">
+                    <h3>Solicitações de saque</h3>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <select id="filtroStatusSaque" style="background:var(--surface2); border:1px solid var(--border2); color:var(--text); border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer;">
+                            <option value="">Todos</option>
+                            <option value="pendente">⏳ Pendentes</option>
+                            <option value="pago">✅ Pagos</option>
+                        </select>
+                        <button id="btnMarcarTodosPago" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#34d399; border-radius:8px; padding:4px 12px; font-size:12px; cursor:pointer; font-weight:600;">✅ Marcar todos pendentes como pago</button>
+                        <span id="labelTotalSaques" style="font-size:11px; color:var(--text3);">—</span>
+                    </div>
+                </div>
+                <div id="listaSaques" style="padding: 8px 0;"></div>
+            </div>
+        </section>
+
+        <!-- ===== SEÇÃO: RELATÓRIO ===== -->
+        <section class="secao" id="secao-relatorio">
+            <div class="config-saque-card">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <div>
+                        <label for="buscaRelatorio" style="font-size:12px; color:var(--text3); display:block; margin-bottom:6px;">🔍 Buscar por nome ou presente</label>
+                        <input type="text" id="buscaRelatorio" placeholder="Nome do convidado, título..." class="campo-form-admin">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; color:var(--text3); display:block; margin-bottom:6px;">👤 Filtrar por cliente</label>
+                        <select id="filtroClienteRelatorio" class="campo-form-admin" style="width:100%;">
+                            <option value="">Todos os clientes</option>
+                        </select>
+                    </div>
+                </div>
+                <label for="buscaRelatorio" style="display:none;">🔍 Buscar</label>
+                <input type="text" id="buscaRelatorio" placeholder="Cliente, presente ou convidado..." style="width:220px;">
+                <label for="dataInicioRelatorio">De</label>
+                <input type="date" id="dataInicioRelatorio">
+                <label for="dataFimRelatorio">Até</label>
+                <input type="date" id="dataFimRelatorio">
+                <button class="btn-salvar-config" id="btnLimparFiltrosRelatorio">Limpar filtros</button>
+            </div>
+            <div class="card-tabela">
+                <div class="card-tabela-header">
+                    <h3>📋 Relatório de Presentes</h3>
+                    <button id="btnExportarXLSX" style="background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#34d399;padding:6px 14px;border-radius:50px;font-size:12px;font-weight:600;cursor:pointer;">📊 Exportar Excel</button>
+                </div>
+                <div class="card-tabela-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Presente</th>
+                            <th>Convidado</th>
+                            <th>Valor original</th>
+                            <th>Quem pagou taxa</th>
+                            <th>Taxa (%)</th>
+                            <th>Meu lucro</th>
+                            <th>Repasse cliente</th>
+                            <th>Data</th>
+                            <th>Comprovante</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaRelatorio">
+                        <tr class="loading-row"><td colspan="10">Carregando...</td></tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SEÇÃO: CONFIGURAÇÕES ===== -->
+        <!-- ===== SEÇÃO: LISTAS PRONTAS ===== -->
+        <section class="secao" id="secao-listas-prontas">
+            <div class="lp-toolbar">
+                <div class="lp-toolbar-acoes" id="lpBreadcrumbAcoes">
+                    <button class="btn-lp-primario" id="btnNovaCategoriaLP">➕ Nova categoria</button>
+                </div>
+                <button class="btn-lp-secundario" id="btnImportarParaCliente">📊 Importar via Excel</button>
+            </div>
+
+            <!-- GRID DE CATEGORIAS -->
+            <div id="lpVisaoCategorias">
+                <div class="lp-grid-categorias" id="lpGridCategorias">
+                    <div class="lp-vazio">Carregando categorias...</div>
+                </div>
+            </div>
+
+            <!-- VISÃO DE ITENS DE UMA CATEGORIA (escondida até clicar) -->
+            <div id="lpVisaoItens" style="display:none;">
+                <button class="btn-lp-secundario" id="btnVoltarCategoriasLP" style="margin-bottom:16px;">← Voltar às categorias</button>
+                <div class="lp-itens-header">
+                    <h3 id="lpItensCategoriaNome">Categoria</h3>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-lp-secundario" id="btnImportarExcelCategoriaLP">📊 Importar Excel</button>
+                        <button class="btn-lp-secundario" id="btnEscolherDoBancoLP">🖼️ Escolher do Banco de Imagens</button>
+                        <button class="btn-lp-primario" id="btnNovoItemLP">➕ Novo item</button>
+                    </div>
+                </div>
+                <div class="lp-grid-itens" id="lpGridItens"></div>
+            </div>
+        </section>
+
+        <!-- ===== SEÇÃO: BANCO DE IMAGENS ===== -->
+        <section class="secao" id="secao-banco-imagens">
+            <div class="lp-toolbar">
+                <div class="lp-toolbar-acoes">
+                    <button class="btn-lp-primario" id="btnNovaImagemBanco">➕ Nova imagem</button>
+                </div>
+                <input type="text" id="inputBuscarBancoImagens" class="campo-form-admin" placeholder="🔍 Buscar por nome ou tag..." style="max-width:280px; margin:0;">
+            </div>
+            <p style="font-size:12px; color:var(--text2); margin:0 0 16px;">
+                Fotos profissionais que você cadastra aqui. Quando um cliente digitar o nome
+                de um produto no cadastro dele, essas imagens aparecem como sugestão — ele
+                pode usar a sua ou continuar subindo a foto dele mesmo.
+            </p>
+
+            <!-- ✅ NOVO: painéis retráteis — todos começam fechados, clica no
+                 título pra abrir/fechar. Evita a tela ficar gigante de cara. -->
+            <div class="painel-colapsavel">
+                <button type="button" class="painel-colapsavel-header" data-alvo="bancoImagensCorpo">
+                    <span>🖼️ Imagens cadastradas</span>
+                    <span class="painel-colapsavel-seta">▶</span>
+                </button>
+                <div class="painel-colapsavel-corpo" id="bancoImagensCorpo" style="display:none;">
+                    <div class="lp-grid-itens" id="bancoImagensGrid">
+                        <div class="lp-vazio">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ NOVO: termos que os clientes buscaram e não acharam sugestão —
+                 pista do que vale a pena cadastrar em seguida. -->
+            <div class="painel-colapsavel">
+                <button type="button" class="painel-colapsavel-header" data-alvo="buscasSemResultadoCorpo">
+                    <span>🔍 Buscas sem sugestão</span>
+                    <span class="painel-colapsavel-seta">▶</span>
+                </button>
+                <div class="painel-colapsavel-corpo" id="buscasSemResultadoCorpo" style="display:none;">
+                    <p style="font-size:11px;color:var(--text3);padding:8px 16px 0;">O que os clientes procuraram e não achou nada parecido</p>
+                    <div id="listaBuscasSemResultado" style="padding:8px 0;">
+                        <p style="font-size:13px;color:var(--text3);padding:16px;">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ NOVO: fotos que clientes já subiram manualmente, pra você
+                 aproveitar sem precisar baixar/subir de novo. -->
+            <div class="painel-colapsavel">
+                <button type="button" class="painel-colapsavel-header" data-alvo="imagensClientesCorpo">
+                    <span>📥 Imagens enviadas por clientes</span>
+                    <span class="painel-colapsavel-seta">▶</span>
+                </button>
+                <div class="painel-colapsavel-corpo" id="imagensClientesCorpo" style="display:none;">
+                    <p style="font-size:11px;color:var(--text3);padding:8px 16px 0;">Reaproveite direto pro banco, sem novo upload</p>
+                    <div class="lp-grid-itens" id="imagensClientesGrid" style="padding:12px;">
+                        <div class="lp-vazio">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ NOVO: preços que clientes digitaram ao cadastrar produtos —
+                 vira sugestão pro banco de preços só depois que você aprovar. -->
+            <div class="painel-colapsavel">
+                <button type="button" class="painel-colapsavel-header" data-alvo="sugestoesPrecoCorpo">
+                    <span>💰 Sugestões de preço</span>
+                    <span class="painel-colapsavel-seta">▶</span>
+                </button>
+                <div class="painel-colapsavel-corpo" id="sugestoesPrecoCorpo" style="display:none;">
+                    <p style="font-size:11px;color:var(--text3);padding:8px 16px 0;">Aprove pra entrar na média oficial, ou ignore</p>
+                    <!-- Adicionar direto, sem esperar sugestão de cliente — pra
+                         quando você mesmo pesquisar o preço de mercado. -->
+                    <div style="display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border1); flex-wrap:wrap;">
+                        <input type="text" id="inputPrecoManualNome" class="campo-form-admin" placeholder="Nome do produto" style="flex:1; min-width:180px; margin:0;">
+                        <input type="text" id="inputPrecoManualValor" class="campo-form-admin" placeholder="R$ 0,00" style="width:120px; margin:0;">
+                        <select id="inputPrecoManualCategoria" class="campo-form-admin" style="width:150px; margin:0;">
+                            <option value="">Sem categoria</option>
+                        </select>
+                        <button class="btn-lp-primario" id="btnAdicionarPrecoManual">➕ Adicionar direto</button>
+                    </div>
+                    <div id="sugestoesPrecoGrid" style="padding:8px 0;">
+                        <p style="font-size:13px;color:var(--text3);padding:16px;">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ NOVO: banco de preços oficial — exportar pra pedir preço
+                 atualizado (pra você ou pra pesquisa externa), importar de
+                 volta pra atualizar em massa. Preços têm validade — depois
+                 de um tempo, saem da média automaticamente até serem
+                 atualizados (evita misturar preço de fevereiro com julho). -->
+            <div class="painel-colapsavel">
+                <button type="button" class="painel-colapsavel-header" data-alvo="bancoPrecosCorpo">
+                    <span>📋 Banco de preços</span>
+                    <span class="painel-colapsavel-seta">▶</span>
+                </button>
+                <div class="painel-colapsavel-corpo" id="bancoPrecosCorpo" style="display:none;">
+                    <p style="font-size:11px;color:var(--text3);padding:8px 16px 0;">Preços com mais de 90 dias saem da média até serem atualizados</p>
+                    <div style="display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border1); flex-wrap:wrap;">
+                        <button class="btn-lp-secundario" id="btnExportarPlanilhaPrecos">📤 Exportar planilha</button>
+                        <label for="inputImportarPlanilhaPrecos" class="btn-lp-secundario" style="cursor:pointer;">📥 Importar planilha</label>
+                        <input type="file" id="inputImportarPlanilhaPrecos" accept=".xlsx,.xls,.csv" style="display:none;">
+                        <button class="btn-lp-secundario" id="btnApagarSelecionadosBancoPrecos" style="color:#f87171; border-color:rgba(248,113,113,0.4);" disabled>🗑️ Apagar selecionados (0)</button>
+                        <span id="importarPrecosStatus" style="font-size:12px; color:var(--text3); align-self:center;"></span>
+                    </div>
+                    <div id="bancoPrecosTabela" style="max-height:320px; overflow-y:auto; padding:8px 0;">
+                        <p style="font-size:13px;color:var(--text3);padding:16px;">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ✅ NOVO: preços que clientes já digitaram nos itens deles,
+                 pra você aproveitar em lote sem precisar redigitar cada um. -->
+            <div class="painel-colapsavel">
+                <button type="button" class="painel-colapsavel-header" data-alvo="precosClientesCorpo">
+                    <span>📥 Preços enviados por clientes</span>
+                    <span class="painel-colapsavel-seta">▶</span>
+                </button>
+                <div class="painel-colapsavel-corpo" id="precosClientesCorpo" style="display:none;">
+                    <p style="font-size:11px;color:var(--text3);padding:8px 16px 0;">Reaproveite o valor que o próprio cliente já digitou no item dele</p>
+                    <div id="precosClientesGrid" style="padding:8px 0;">
+                        <div class="lp-vazio">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="secao" id="secao-comunicados">
+            <div class="taxa-config-card" style="margin-bottom:20px;">
+                <h3>📢 Novo comunicado global</h3>
+                <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Aparece no painel de notificações de <strong>todos os clientes</strong> em tempo real.</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                    <div>
+                        <span class="label-form-admin">Tipo</span>
+                        <select id="comunicadoTipo" class="campo-form-admin" style="width:100%;">
+                            <option value="info">📢 Informação geral</option>
+                            <option value="taxa">💸 Atualização de taxa</option>
+                            <option value="instabilidade">⚠️ Instabilidade / manutenção</option>
+                            <option value="comprovante">📄 Comprovantes / pagamentos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <span class="label-form-admin">Fixo?</span>
+                        <select id="comunicadoFixo" class="campo-form-admin" style="width:100%;">
+                            <option value="false">Não — pode ser ignorado</option>
+                            <option value="true">Sim — permanece sempre visível</option>
+                        </select>
+                    </div>
+                </div>
+                <span class="label-form-admin">Título</span>
+                <input type="text" id="comunicadoTitulo" class="campo-form-admin" placeholder="Ex: Taxa atualizada para 3,2%" style="margin-bottom:12px;">
+                <span class="label-form-admin">Mensagem</span>
+                <textarea id="comunicadoMensagem" class="campo-form-admin" rows="3" placeholder="Detalhe o comunicado aqui..." style="resize:vertical;font-family:inherit;"></textarea>
+                <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+                    <button class="btn-salvar-taxa" id="btnEnviarComunicado">Enviar comunicado</button>
+                </div>
+            </div>
+            <div class="card-tabela">
+                <div class="card-tabela-header">
+                    <h3>📋 Comunicados enviados</h3>
+                    <span style="font-size:11px;color:var(--text3);">Tempo real</span>
+                </div>
+                <div id="listaComunicados" style="padding:8px 0;">
+                    <p style="font-size:13px;color:var(--text3);padding:16px;">Carregando...</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="secao" id="secao-configuracoes">
+            <div class="taxa-config-card">
+                <h3>⚙️ Taxa de serviço global</h3>
+                <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">
+                    Esta taxa será aplicada em todas as novas listas e itens cadastrados pelos clientes.
+                </p>
+                <div class="taxa-input-wrap">
+                    <input type="number" id="inputTaxaGlobal" class="taxa-input" min="0" max="100" step="0.1" value="2.8">
+                    <span style="font-size:18px; color:var(--text2); font-family:var(--mono);">%</span>
+                    <button class="btn-salvar-taxa" id="btnSalvarTaxaGlobal">Salvar taxa</button>
+                </div>
+                <p style="font-size:12px; color:var(--text3); margin-top:12px;">
+                    ⚠️ Alterar a taxa não afeta itens já cadastrados — só novos cadastros.
+                </p>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- MODAL DETALHE CLIENTE -->
+<div class="modal-admin" id="modalCliente">
+    <div class="modal-admin-content">
+        <div class="modal-admin-header">
+            <h3 id="modalClienteNome">Detalhes do cliente</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalCliente">✕</button>
+        </div>
+        <div class="detalhe-grid" id="modalClienteGrid"></div>
+        <h4 style="font-size:13px; color:var(--text2); margin-bottom:10px; font-weight:600;">🎁 Presentes recebidos</h4>
+        <div class="presentes-lista" id="modalClientePresentes"></div>
+    </div>
+</div>
+
+<!-- MODAL CONFIRMAR PAGAMENTO DE SAQUE -->
+<div class="modal-admin" id="modalConfirmarPagamento">
+    <div class="modal-admin-content" style="max-width:420px;">
+        <div class="modal-admin-header">
+            <h3>✅ Confirmar pagamento</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalPagamento">✕</button>
+        </div>
+        <p style="font-size:13px; color:var(--text2); margin-bottom:6px;">
+            Cliente: <strong id="pagamentoClienteNome">—</strong>
+        </p>
+        <p style="font-size:13px; color:var(--text2); margin-bottom:16px;">
+            Valor a confirmar: <strong id="pagamentoValor" style="color:var(--green);">—</strong>
+        </p>
+        <div class="nome" style="margin-top:0;">Comprovante / observação <span>(opcional)</span></div>
+        <textarea id="pagamentoObservacao" class="campo-form-admin" rows="3"
+            placeholder="Ex: PIX enviado às 14h32, comprovante #12345, etc."
+            style="width:100%; resize:vertical; background:var(--bg); border:1px solid var(--border2); border-radius:8px; color:var(--text); padding:10px 12px; font-size:13px; font-family:inherit;"></textarea>
+        <div style="display:flex; gap:10px; margin-top:18px; justify-content:flex-end;">
+            <button class="btn-tabela" id="btnCancelarPagamento" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnConfirmarPagamentoFinal">✅ Confirmar pagamento</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CATEGORIA (LISTAS PRONTAS) -->
+<div class="modal-admin" id="modalCategoriaLP">
+    <div class="modal-admin-content" style="max-width:420px;">
+        <div class="modal-admin-header">
+            <h3 id="modalCategoriaLPTitulo">➕ Nova categoria</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalCategoriaLP">✕</button>
+        </div>
+        <span class="label-form-admin">Nome da categoria</span>
+        <input type="text" id="inputCategoriaLPNome" class="campo-form-admin" placeholder="Ex: Chá de bebê">
+        <span class="label-form-admin">Ícone (emoji)</span>
+        <input type="text" id="inputCategoriaLPIcone" class="campo-form-admin" placeholder="Ex: 🍼" maxlength="4">
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
+            <button class="btn-tabela" id="btnCancelarCategoriaLP" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnSalvarCategoriaLP">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL ITEM (LISTAS PRONTAS) -->
+<div class="modal-admin" id="modalItemLP">
+    <div class="modal-admin-content" style="max-width:440px;">
+        <div class="modal-admin-header">
+            <h3 id="modalItemLPTitulo">➕ Novo item</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalItemLP">✕</button>
+        </div>
+        <span class="label-form-admin">Nome do item</span>
+        <input type="text" id="inputItemLPNome" class="campo-form-admin" placeholder="Ex: Jogo de panelas">
+        <span class="label-form-admin">Valor sugerido (opcional)</span>
+        <input type="tel" id="inputItemLPPreco" class="campo-form-admin" placeholder="R$ 0,00">
+        <span class="label-form-admin">Imagem do produto</span>
+        <img id="lpItemPreviewImagem" class="lp-preview-imagem" alt="Pré-visualização">
+        <input type="file" id="inputItemLPImagem" class="upload-form-admin" accept="image/*">
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
+            <button class="btn-tabela" id="btnCancelarItemLP" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnSalvarItemLP">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL SELECIONAR DO BANCO DE IMAGENS (PARA LISTA PRONTA) -->
+<div class="modal-admin" id="modalSelecionarBancoLP">
+    <div class="modal-admin-content" style="max-width:720px;">
+        <div class="modal-admin-header">
+            <h3>🖼️ Escolher do Banco de Imagens</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalSelecionarBancoLP">✕</button>
+        </div>
+        <input type="text" id="inputBuscarSelecionarBancoLP" class="campo-form-admin" placeholder="🔍 Buscar por nome ou tag..." style="margin-bottom:12px;">
+        <div id="contadorSelecaoBancoLP" style="font-size:12px; color:var(--text2); margin-bottom:10px;">0 selecionadas</div>
+        <div class="lp-grid-itens" id="gridSelecionarBancoLP" style="max-height:50vh; overflow-y:auto;"></div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+            <button class="btn-tabela" id="btnCancelarSelecionarBancoLP" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnConfirmarSelecaoBancoLP">Adicionar selecionadas</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REVISAR ITENS SELECIONADOS DO BANCO (PARA LISTA PRONTA) -->
+<div class="modal-admin" id="modalRevisarSelecaoBancoLP">
+    <div class="modal-admin-content" style="max-width:560px;">
+        <div class="modal-admin-header">
+            <h3>✏️ Revisar antes de salvar</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalRevisarSelecaoBancoLP">✕</button>
+        </div>
+        <p style="font-size:12px; color:var(--text2); margin:0 0 12px;">
+            Ajuste nome e valor de cada item, se precisar. A imagem é a que veio do banco.
+        </p>
+        <div id="listaRevisarSelecaoBancoLP" style="max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+            <button class="btn-tabela" id="btnVoltarRevisarSelecaoBancoLP" style="background:var(--surface2); color:var(--text2);">← Voltar à seleção</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnSalvarRevisaoSelecaoBancoLP">Salvar todos</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL BANCO DE IMAGENS -->
+<div class="modal-admin" id="modalImagemBanco">
+    <div class="modal-admin-content" style="max-width:440px;">
+        <div class="modal-admin-header">
+            <h3 id="modalImagemBancoTitulo">➕ Nova imagem</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalImagemBanco">✕</button>
+        </div>
+        <span class="label-form-admin">Nome do produto</span>
+        <input type="text" id="inputImagemBancoNome" class="campo-form-admin" placeholder="Ex: Fogão 4 bocas preto">
+        <span class="label-form-admin">Sinônimos (opcional, separados por vírgula)</span>
+        <input type="text" id="inputImagemBancoSinonimos" class="campo-form-admin" placeholder="Ex: cooktop, fogão de embutir">
+        <span class="label-form-admin">Categoria (opcional)</span>
+        <select id="inputImagemBancoCategoria" class="campo-form-admin">
+            <option value="">Sem categoria</option>
+        </select>
+        <span class="label-form-admin">Valor de referência (opcional)</span>
+        <input type="text" id="inputImagemBancoValor" class="campo-form-admin" placeholder="R$ 0,00">
+        <span class="label-form-admin">Imagem (profissional/alta qualidade)</span>
+        <img id="imagemBancoPreview" class="lp-preview-imagem" alt="Pré-visualização">
+        <input type="file" id="inputImagemBancoArquivo" class="upload-form-admin" accept="image/*">
+        <div id="imagemBancoTagsPreview" style="font-size:11px; color:var(--text3); margin-top:8px;"></div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+            <button class="btn-tabela" id="btnCancelarImagemBanco" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnSalvarImagemBanco">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL IMPORTAR ITENS VIA EXCEL PARA UM CLIENTE -->
+<div class="modal-admin" id="modalImportarLP">
+    <div class="modal-admin-content" style="max-width:560px;">
+        <div class="modal-admin-header">
+            <h3>📊 Importar itens via Excel</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalImportarLP">✕</button>
+        </div>
+        <p style="font-size:12px; color:var(--text2); margin-bottom:16px;">
+            Cadastre de uma vez os itens que um cliente pediu para você adicionar na lista dele.
+        </p>
+
+        <span class="label-form-admin">Cliente de destino</span>
+        <input type="text" id="inputBuscaClienteLP" class="campo-form-admin" placeholder="Buscar por nome ou e-mail...">
+        <div class="lp-busca-cliente-resultados" id="lpBuscaClienteResultados"></div>
+        <div class="lp-cliente-selecionado" id="lpClienteSelecionado">
+            <span id="lpClienteSelecionadoTexto"></span>
+            <button id="btnLimparClienteLP">✕</button>
+        </div>
+
+        <div class="lp-excel-download-box">
+            <div>
+                <strong>Não tem a planilha ainda?</strong>
+                <span>Baixe o modelo, preencha os itens e volte para subir o arquivo.</span>
+            </div>
+            <button class="btn-lp-secundario" id="btnBaixarModeloExcel" type="button">⬇️ Baixar modelo</button>
+        </div>
+
+        <span class="label-form-admin">Arquivo .xlsx preenchido</span>
+        <input type="file" id="inputArquivoExcelLP" class="upload-form-admin" accept=".xlsx,.xls">
+
+        <div id="lpExcelPreviewWrap" style="display:none;">
+            <div class="lp-itens-header" style="margin-top:6px;">
+                <h3 style="font-size:13px;">Pré-visualização (<span id="lpExcelPreviewQtd">0</span> itens)</h3>
+                <span id="lpExcelPreviewAviso" style="font-size:11px; color:var(--yellow);"></span>
+            </div>
+            <div class="lp-excel-preview-tabela" id="lpExcelPreviewTabela"></div>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+            <button class="btn-tabela" id="btnCancelarImportarLP" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnConfirmarImportarLP" disabled>Importar itens</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL IMPORTAR ITENS VIA EXCEL DIRETO PARA UMA CATEGORIA DO CATÁLOGO -->
+<div class="modal-admin" id="modalImportarExcelCategoriaLP">
+    <div class="modal-admin-content" style="max-width:560px;">
+        <div class="modal-admin-header">
+            <h3>📊 Importar itens via Excel</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalImportarExcelCategoriaLP">✕</button>
+        </div>
+        <p style="font-size:12px; color:var(--text2); margin-bottom:16px;">
+            Os itens importados serão adicionados à categoria <strong id="importarExcelCategoriaNome">—</strong> do catálogo de listas prontas.
+        </p>
+
+        <div class="lp-excel-download-box">
+            <div>
+                <strong>Não tem a planilha ainda?</strong>
+                <span>Baixe o modelo, preencha os itens e volte para subir o arquivo.</span>
+            </div>
+            <button class="btn-lp-secundario" id="btnBaixarModeloExcelCategoria" type="button">⬇️ Baixar modelo</button>
+        </div>
+
+        <span class="label-form-admin">Arquivo .xlsx preenchido</span>
+        <input type="file" id="inputArquivoExcelCategoriaLP" class="upload-form-admin" accept=".xlsx,.xls">
+
+        <div id="lpExcelCategoriaPreviewWrap" style="display:none;">
+            <div class="lp-itens-header" style="margin-top:6px;">
+                <h3 style="font-size:13px;">Pré-visualização (<span id="lpExcelCategoriaPreviewQtd">0</span> itens)</h3>
+                <span id="lpExcelCategoriaPreviewAviso" style="font-size:11px; color:var(--yellow);"></span>
+            </div>
+            <div class="lp-excel-preview-tabela" id="lpExcelCategoriaPreviewTabela"></div>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
+            <button class="btn-tabela" id="btnCancelarImportarExcelCategoriaLP" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnConfirmarImportarExcelCategoriaLP" disabled>Importar itens</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-admin" id="toastAdmin"></div>
+
+<script src="js/monitoring.js"></script>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
