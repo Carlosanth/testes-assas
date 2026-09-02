@@ -19,13 +19,13 @@
  */
 
 export const firebaseConfig = {
-    apiKey: "AIzaSyDcDs0qgXdOQRnMW2mClO1kCoYmbVfeThY",
-    authDomain: "escolhaseupresente-35d3d.firebaseapp.com",
-    projectId: "escolhaseupresente-35d3d",
-    storageBucket: "escolhaseupresente-35d3d.firebasestorage.app",
-    messagingSenderId: "374767023277",
-    appId: "1:374767023277:web:0a6d45cb62136ba4040224",
-    measurementId: "G-DJZFYZSGMV"
+  apiKey: "AIzaSyC5rMhDhuflhf8CQIPq8HUh-0PBJsn72-4",
+  authDomain: "testes-assas.firebaseapp.com",
+  projectId: "testes-assas",
+  storageBucket: "testes-assas.firebasestorage.app",
+  messagingSenderId: "947838430288",
+  appId: "1:947838430288:web:dbec94a751720b72c3b555",
+  measurementId: "G-4YGY60EEXT"
 };
 
 /**
@@ -36,5 +36,9 @@ export const firebaseConfig = {
 export const cloudFunctions = {
     finalizarCompra: "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/finalizarCompra",
     confirmarPagamento: "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/confirmarPagamento",
-    uploadImagem: "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/uploadImagem"
+    uploadImagem: "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/uploadImagem",
+    // ✅ NOVO: cria a subconta Asaas do dono da lista a partir dos dados
+    // salvos em perfis/{uid}. Troque o domínio pelo do projeto de
+    // testes (assas-testes) enquanto estiver validando no Sandbox.
+    criarSubcontaAsaas: "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/criarSubcontaAsaas"
 };
