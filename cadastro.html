@@ -2812,8 +2812,31 @@
         // ================================================================
         // COMPARTILHAR / QR CODE
         // ================================================================
+        // ✅ NOVO: antes de compartilhar (link ou QR code), garante que a
+        // subconta Asaas do dono da lista já foi criada — sem isso, os
+        // pagamentos dos convidados não têm pra onde ir. Consulta
+        // rápida ao Firestore só nesse momento, não fica reconsultando
+        // o tempo todo.
+        async function podeCompartilhar() {
+            if (!usuarioAtualUid) { mostrarToast('Faça login primeiro.', 'erro', '🔒'); return false; }
+
+            const perfilSnap = await getDoc(doc(db, "perfis", usuarioAtualUid));
+            const perfil = perfilSnap.data() || {};
+
+            if (perfil.subconta_asaas_status === "criada") return true;
+
+            if (perfil.subconta_asaas_status === "pendente") {
+                mostrarToast('Seus dados de recebimento ainda estão em verificação. Tente novamente em instantes.', 'aviso', '⏳');
+                return false;
+            }
+
+            mostrarToast('Complete seus dados de recebimento antes de compartilhar.', 'aviso', '⚠️');
+            window.location.href = "dados-recebimento.html";
+            return false;
+        }
+
         document.getElementById('compartilhar').addEventListener('click', async () => {
-            if (!usuarioAtualUid) { mostrarToast('Faça login primeiro.', 'erro', '🔒'); return; }
+            if (!(await podeCompartilhar())) return;
             const linkLista = `${URL_BASE_SITE}?id=${usuarioAtualUid}`;
             if (navigator.share) {
                 try { await navigator.share({ title: 'Minha Lista de Presentes', text: 'Escolha um presente especial para nós!', url: linkLista }); }
@@ -2824,8 +2847,8 @@
             }
         });
 
-        document.getElementById('qrcode').addEventListener('click', () => {
-            if (!usuarioAtualUid) { mostrarToast('Faça login primeiro.', 'erro', '🔒'); return; }
+        document.getElementById('qrcode').addEventListener('click', async () => {
+            if (!(await podeCompartilhar())) return;
             const linkLista = `${URL_BASE_SITE}?id=${usuarioAtualUid}`;
             canvasQR.innerHTML = "";
             modalQR.style.display = "flex";
