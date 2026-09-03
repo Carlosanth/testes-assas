@@ -22,7 +22,6 @@
             padding: 32px 20px;
         }
 
-        /* ── Card central ── */
         .onboarding-card {
             width: 100%;
             max-width: 460px;
@@ -37,7 +36,6 @@
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
-        /* ── Progresso ── */
         .progresso {
             display: flex;
             align-items: center;
@@ -56,7 +54,6 @@
         .passo.ativo    { background: #7c3aed; }
         .passo.completo { background: #34d399; }
 
-        /* ── Cabeçalho ── */
         .eyebrow {
             font-size: 12px;
             font-weight: 600;
@@ -83,7 +80,6 @@
             margin-bottom: 28px;
         }
 
-        /* ── Campos ── */
         .field-group {
             display: flex;
             flex-direction: column;
@@ -117,7 +113,10 @@
             text-transform: uppercase;
         }
 
-        .field-input {
+        .field-group-linha .field-group-cep { flex: 0 0 140px; }
+        .field-group-linha .field-group-numero { flex: 0 0 100px; }
+
+        .field-input, .field-select {
             width: 100%;
             padding: 14px 18px;
             background: rgba(255, 255, 255, 0.08);
@@ -130,15 +129,25 @@
             transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
         }
 
+        .field-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a78bfa' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 18px;
+            padding-right: 40px;
+        }
+
+        .field-select option { background: #1e0a4a; color: #fff; }
+
         .field-input::placeholder { color: rgba(255, 255, 255, 0.3); }
 
-        .field-input:focus {
+        .field-input:focus, .field-select:focus {
             border-color: rgba(167, 139, 250, 0.7);
             background: rgba(167, 139, 250, 0.08);
             box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
         }
 
-        /* ── Aviso de segurança ── */
         .aviso-seguranca {
             display: flex;
             align-items: flex-start;
@@ -155,7 +164,6 @@
 
         .aviso-seguranca span { font-size: 16px; flex-shrink: 0; }
 
-        /* ── Mensagem erro/sucesso ── */
         .msg-erro {
             min-height: 18px;
             font-size: 13px;
@@ -168,7 +176,6 @@
         .msg-erro.visivel  { color: #f87171; }
         .msg-erro.sucesso  { color: #34d399; }
 
-        /* ── Botão principal ── */
         .btn-primary {
             display: block;
             width: 100%;
@@ -194,7 +201,19 @@
         .btn-primary:active  { transform: scale(0.98); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-        /* ── Pular por enquanto ── */
+        .btn-voltar {
+            width: 100%;
+            padding: 13px;
+            margin-top: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+        }
+
         .btn-pular {
             display: block;
             width: 100%;
@@ -210,7 +229,6 @@
         }
         .btn-pular:hover { color: rgba(255, 255, 255, 0.6); }
 
-        /* ── Tela de sucesso ── */
         .tela-sucesso {
             display: none;
             text-align: center;
@@ -242,6 +260,9 @@
             to   { transform: scale(1);   opacity: 1; }
         }
 
+        .etapa { display: none; }
+        .etapa.ativa { display: block; }
+
         @media (max-width: 480px) {
             .onboarding-card { padding: 32px 24px; }
             .titulo { font-size: 28px; }
@@ -252,15 +273,14 @@
 
     <div class="onboarding-card">
 
-        <!-- Barra de progresso: 3 passos visuais -->
         <div class="progresso">
             <div class="passo completo" id="passo1"></div>
             <div class="passo ativo"    id="passo2"></div>
             <div class="passo"          id="passo3"></div>
         </div>
 
-        <!-- FORMULÁRIO DE PERFIL -->
-        <div id="tela-form">
+        <!-- ETAPA 1 — dados pessoais -->
+        <div id="etapa1" class="etapa ativa">
             <p class="eyebrow">Quase lá</p>
             <h1 class="titulo">Complete seu perfil</h1>
             <p class="subtitulo">
@@ -269,50 +289,22 @@
 
             <div class="field-group">
                 <label for="cpfInput">CPF</label>
-                <input
-                    type="tel"
-                    id="cpfInput"
-                    class="field-input"
-                    placeholder="000.000.000-00"
-                    maxlength="14"
-                    required
-                >
+                <input type="tel" id="cpfInput" class="field-input" placeholder="000.000.000-00" maxlength="14" required>
             </div>
 
             <div class="field-group">
                 <label for="telefoneInput">Telefone / WhatsApp</label>
-                <input
-                    type="tel"
-                    id="telefoneInput"
-                    class="field-input"
-                    placeholder="(00) 00000-0000"
-                    maxlength="15"
-                    required
-                >
+                <input type="tel" id="telefoneInput" class="field-input" placeholder="(00) 00000-0000" maxlength="15" required>
             </div>
 
             <div class="field-group-linha">
                 <div class="field-group">
                     <label for="cidadeInput">Cidade</label>
-                    <input
-                        type="text"
-                        id="cidadeInput"
-                        class="field-input"
-                        placeholder="Sua cidade"
-                        maxlength="60"
-                        required
-                    >
+                    <input type="text" id="cidadeInput" class="field-input" placeholder="Sua cidade" maxlength="60" required>
                 </div>
                 <div class="field-group field-group-estado">
                     <label for="estadoInput">UF</label>
-                    <input
-                        type="text"
-                        id="estadoInput"
-                        class="field-input"
-                        placeholder="-"
-                        maxlength="2"
-                        required
-                    >
+                    <input type="text" id="estadoInput" class="field-input" placeholder="-" maxlength="2" required>
                 </div>
             </div>
 
@@ -321,15 +313,76 @@
                 <p>Seus dados são armazenados com segurança e utilizados exclusivamente para verificação de identidade e processamento de saques.</p>
             </div>
 
-            <div id="msg-erro" class="msg-erro"></div>
+            <div id="msg-erro-1" class="msg-erro"></div>
 
-            <button type="button" id="btnSalvarPerfil" class="btn-primary">
-                Salvar e continuar
-            </button>
+            <button type="button" id="btnSalvarEtapa1" class="btn-primary">Salvar e continuar</button>
+            <button type="button" class="btn-pular" id="btnPular1">Preencher depois</button>
+        </div>
 
-            <button type="button" class="btn-pular" id="btnPular">
-                Preencher depois
-            </button>
+        <!-- ETAPA 2 — dados de recebimento -->
+        <div id="etapa2" class="etapa">
+            <p class="eyebrow">Antes de compartilhar</p>
+            <h1 class="titulo">Dados para recebimento</h1>
+            <p class="subtitulo">
+                Essas informações são exigidas pelo nosso parceiro de pagamentos (Asaas)
+                para viabilizar o recebimento e o saque dos valores da sua lista,
+                conforme normas do Banco Central.
+            </p>
+
+            <div class="field-group-linha">
+                <div class="field-group field-group-cep">
+                    <label for="cepInput">CEP</label>
+                    <input type="tel" id="cepInput" class="field-input" placeholder="00000-000" maxlength="9" required>
+                </div>
+                <div class="field-group">
+                    <label for="enderecoInput">Endereço</label>
+                    <input type="text" id="enderecoInput" class="field-input" placeholder="Rua, avenida..." maxlength="120" required>
+                </div>
+            </div>
+
+            <div class="field-group-linha">
+                <div class="field-group field-group-numero">
+                    <label for="numeroInput">Número</label>
+                    <input type="text" id="numeroInput" class="field-input" placeholder="100" maxlength="10" required>
+                </div>
+                <div class="field-group">
+                    <label for="bairroInput">Bairro</label>
+                    <input type="text" id="bairroInput" class="field-input" placeholder="Bairro" maxlength="80" required>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label for="complementoInput">Complemento (opcional)</label>
+                <input type="text" id="complementoInput" class="field-input" placeholder="Apto, bloco..." maxlength="60">
+            </div>
+
+            <div class="field-group">
+                <label for="nascimentoInput">Data de nascimento</label>
+                <input type="date" id="nascimentoInput" class="field-input" required>
+            </div>
+
+            <div class="field-group">
+                <label for="rendaInput">Faixa de renda mensal</label>
+                <select id="rendaInput" class="field-select" required>
+                    <option value="" disabled selected>Selecione uma faixa</option>
+                    <option value="2000">Até R$ 2.000</option>
+                    <option value="5000">De R$ 2.001 a R$ 5.000</option>
+                    <option value="10000">De R$ 5.001 a R$ 10.000</option>
+                    <option value="20000">De R$ 10.001 a R$ 20.000</option>
+                    <option value="30000">Acima de R$ 20.000</option>
+                </select>
+            </div>
+
+            <div class="aviso-seguranca">
+                <span>🔒</span>
+                <p>Seus dados são armazenados com segurança e usados exclusivamente para viabilizar o recebimento dos presentes da sua lista.</p>
+            </div>
+
+            <div id="msg-erro-2" class="msg-erro"></div>
+
+            <button type="button" id="btnSalvarEtapa2" class="btn-primary">Salvar e continuar</button>
+            <button type="button" class="btn-voltar" id="btnVoltarEtapa1">← Voltar</button>
+            <button type="button" class="btn-pular" id="btnPular2">Preencher depois</button>
         </div>
 
         <!-- TELA DE SUCESSO -->
@@ -339,28 +392,58 @@
             <p class="desc-ok">
                 Seu perfil está completo. Agora você pode criar sua lista e começar a receber presentes.
             </p>
-            <button type="button" id="btnIrParaLista" class="btn-primary">
-                Criar minha lista
-            </button>
+            <button type="button" id="btnIrParaLista" class="btn-primary">Criar minha lista</button>
         </div>
 
     </div>
 
     <script type="module">
-        import { supabase } from './js/supabase-config.js';
+        import { supabase, edgeFunctions } from "./js/supabase-config.js";
 
         let usuarioAtual = null;
 
-        // Garante que só acessa autenticado
-        supabase.auth.getSession().then(({ data }) => {
-            if (data?.session?.user) {
-                usuarioAtual = data.session.user;
-            } else {
+        const passo2 = document.getElementById('passo2');
+        const passo3 = document.getElementById('passo3');
+        const etapa1 = document.getElementById('etapa1');
+        const etapa2 = document.getElementById('etapa2');
+        const telaSucesso = document.getElementById('tela-sucesso');
+
+        function irParaEtapa2() {
+            etapa1.classList.remove('ativa');
+            etapa2.classList.add('ativa');
+            passo2.className = 'passo completo';
+            passo3.className = 'passo ativo';
+        }
+        function irParaEtapa1() {
+            etapa2.classList.remove('ativa');
+            etapa1.classList.add('ativa');
+            passo2.className = 'passo ativo';
+            passo3.className = 'passo';
+        }
+
+        // ── Garante que só acessa autenticado, e resume na etapa certa ──
+        supabase.auth.getSession().then(async ({ data }) => {
+            if (!data?.session?.user) {
                 window.location.href = "index.html";
+                return;
+            }
+            usuarioAtual = data.session.user;
+
+            const { data: perfil } = await supabase
+                .from("perfis")
+                .select("cpf, telefone, cidade, estado, subconta_asaas_status")
+                .eq("id", usuarioAtual.id)
+                .maybeSingle();
+
+            if (perfil?.subconta_asaas_status === "criada") {
+                window.location.href = "cadastro.html";
+                return;
+            }
+            if (perfil?.cpf && perfil?.telefone && perfil?.cidade && perfil?.estado) {
+                irParaEtapa2();
             }
         });
 
-        // ── Máscara CPF ──────────────────────────────────────
         const cpfInput = document.getElementById('cpfInput');
         cpfInput.addEventListener('input', () => {
             let v = cpfInput.value.replace(/\D/g, '').slice(0, 11);
@@ -370,7 +453,6 @@
             cpfInput.value = v;
         });
 
-        // ── Máscara telefone ─────────────────────────────────
         const telInput = document.getElementById('telefoneInput');
         telInput.addEventListener('input', () => {
             let v = telInput.value.replace(/\D/g, '').slice(0, 11);
@@ -381,7 +463,6 @@
             telInput.value = v;
         });
 
-        // ── Validação de CPF ─────────────────────────────────
         function validarCPF(cpf) {
             const nums = cpf.replace(/\D/g, '');
             if (nums.length !== 11 || /^(\d)\1+$/.test(nums)) return false;
@@ -397,47 +478,44 @@
             return r === parseInt(nums[10]);
         }
 
-        // ── Lista de UFs válidas (Brasil) ────────────────────
         const UFS_VALIDAS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
-        // ── Força maiúsculas no campo UF ─────────────────────
         const estadoInput = document.getElementById('estadoInput');
         estadoInput.addEventListener('input', () => {
             estadoInput.value = estadoInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
         });
 
-        // ── Mensagem de erro ─────────────────────────────────
-        const msgErro = document.getElementById('msg-erro');
-        function mostrarErro(msg) {
-            msgErro.textContent = msg;
-            msgErro.className = 'msg-erro visivel';
+        const msgErro1 = document.getElementById('msg-erro-1');
+        const msgErro2 = document.getElementById('msg-erro-2');
+        function mostrarErro(el, msg) {
+            el.textContent = msg;
+            el.className = 'msg-erro visivel';
         }
-        function limparErro() {
-            msgErro.textContent = '';
-            msgErro.className = 'msg-erro';
+        function limparErro(el) {
+            el.textContent = '';
+            el.className = 'msg-erro';
         }
 
-        // ── Salvar perfil no Firestore ───────────────────────
-        document.getElementById('btnSalvarPerfil').addEventListener('click', async () => {
+        document.getElementById('btnSalvarEtapa1').addEventListener('click', async () => {
             if (!usuarioAtual) return;
 
             const cpf      = cpfInput.value.trim();
             const telefone = telInput.value.trim();
             const cidade   = document.getElementById('cidadeInput').value.trim();
-            const estado   = document.getElementById('estadoInput').value.trim().toUpperCase();
-            const btn      = document.getElementById('btnSalvarPerfil');
+            const estado   = estadoInput.value.trim().toUpperCase();
+            const btn      = document.getElementById('btnSalvarEtapa1');
 
-            limparErro();
+            limparErro(msgErro1);
 
-            if (!cpf)      { mostrarErro('Informe seu CPF.'); return; }
-            if (!validarCPF(cpf)) { mostrarErro('CPF inválido. Verifique os números.'); return; }
+            if (!cpf)      { mostrarErro(msgErro1, 'Informe seu CPF.'); return; }
+            if (!validarCPF(cpf)) { mostrarErro(msgErro1, 'CPF inválido. Verifique os números.'); return; }
             if (telefone.replace(/\D/g,'').length < 10) {
-                mostrarErro('Informe um telefone válido com DDD.');
+                mostrarErro(msgErro1, 'Informe um telefone válido com DDD.');
                 return;
             }
-            if (!cidade) { mostrarErro('Informe sua cidade.'); return; }
+            if (!cidade) { mostrarErro(msgErro1, 'Informe sua cidade.'); return; }
             if (!estado || !UFS_VALIDAS.includes(estado)) {
-                mostrarErro('Informe um estado (UF) válido, ex: CE, SP, RJ.');
+                mostrarErro(msgErro1, 'Informe um estado (UF) válido, ex: CE, SP, RJ.');
                 return;
             }
 
@@ -454,29 +532,127 @@
                 estado:   estado,
             });
 
+            btn.textContent = 'Salvar e continuar';
+            btn.disabled    = false;
+
             if (error) {
                 console.error('Erro ao salvar perfil:', error);
-                mostrarErro('Erro ao salvar. Tente novamente.');
-                btn.textContent = 'Salvar e continuar';
-                btn.disabled    = false;
+                mostrarErro(msgErro1, 'Erro ao salvar. Tente novamente.');
                 return;
             }
 
-            // Atualiza barra de progresso
-            document.getElementById('passo2').className = 'passo completo';
-            document.getElementById('passo3').className = 'passo ativo';
-
-            // Exibe tela de sucesso
-            document.getElementById('tela-form').style.display    = 'none';
-            document.getElementById('tela-sucesso').style.display = 'block';
+            irParaEtapa2();
         });
 
-        // ── Pular por enquanto ───────────────────────────────
-        document.getElementById('btnPular').addEventListener('click', () => {
+        document.getElementById('btnPular1').addEventListener('click', () => {
             window.location.href = "cadastro.html";
         });
 
-        // ── Ir para a lista ──────────────────────────────────
+        const cepInput = document.getElementById('cepInput');
+        cepInput.addEventListener('input', () => {
+            let v = cepInput.value.replace(/\D/g, '').slice(0, 8);
+            if (v.length > 5) v = v.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+            cepInput.value = v;
+        });
+
+        const enderecoInput = document.getElementById('enderecoInput');
+        const bairroInput   = document.getElementById('bairroInput');
+
+        cepInput.addEventListener('blur', async () => {
+            const cepLimpo = cepInput.value.replace(/\D/g, '');
+            if (cepLimpo.length !== 8) return;
+
+            try {
+                const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+                const data = await resp.json();
+                if (data.erro) {
+                    mostrarErro(msgErro2, 'CEP não encontrado. Confira e tente novamente.');
+                    return;
+                }
+                limparErro(msgErro2);
+                if (data.logradouro && !enderecoInput.value) enderecoInput.value = data.logradouro;
+                if (data.bairro && !bairroInput.value) bairroInput.value = data.bairro;
+            } catch (e) {
+                console.warn('ViaCEP indisponível, preenchimento manual liberado.', e);
+            }
+        });
+
+        document.getElementById('btnSalvarEtapa2').addEventListener('click', async () => {
+            if (!usuarioAtual) return;
+
+            const cep          = cepInput.value.trim();
+            const endereco      = enderecoInput.value.trim();
+            const numero        = document.getElementById('numeroInput').value.trim();
+            const bairro        = bairroInput.value.trim();
+            const complemento   = document.getElementById('complementoInput').value.trim();
+            const nascimento    = document.getElementById('nascimentoInput').value;
+            const renda         = document.getElementById('rendaInput').value;
+            const btn           = document.getElementById('btnSalvarEtapa2');
+
+            limparErro(msgErro2);
+
+            if (cep.replace(/\D/g, '').length !== 8) { mostrarErro(msgErro2, 'Informe um CEP válido.'); return; }
+            if (!endereco) { mostrarErro(msgErro2, 'Informe o endereço.'); return; }
+            if (!numero)   { mostrarErro(msgErro2, 'Informe o número.'); return; }
+            if (!bairro)   { mostrarErro(msgErro2, 'Informe o bairro.'); return; }
+            if (!nascimento) { mostrarErro(msgErro2, 'Informe sua data de nascimento.'); return; }
+            if (!renda)    { mostrarErro(msgErro2, 'Selecione uma faixa de renda.'); return; }
+
+            btn.textContent = 'Enviando...';
+            btn.disabled = true;
+
+            const { error: erroSalvar } = await supabase.from("perfis").upsert({
+                id:                    usuarioAtual.id,
+                endereco_cep:          cep,
+                endereco_rua:          endereco,
+                endereco_numero:       numero,
+                endereco_bairro:       bairro,
+                endereco_complemento:  complemento || null,
+                data_nascimento:       nascimento,
+                renda_mensal_faixa:    Number(renda),
+                dados_saque_completos: true,
+                subconta_asaas_status: "pendente",
+            });
+
+            if (erroSalvar) {
+                console.error('Erro ao salvar dados de recebimento:', erroSalvar);
+                mostrarErro(msgErro2, 'Erro ao salvar. Tente novamente em instantes.');
+                btn.textContent = 'Salvar e continuar';
+                btn.disabled = false;
+                return;
+            }
+
+            const { data: sessaoAtual } = await supabase.auth.getSession();
+            try {
+                const resp = await fetch(edgeFunctions.criarSubconta, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
+                    },
+                });
+
+                if (!resp.ok) {
+                    const erroData = await resp.json().catch(() => ({}));
+                    throw new Error(erroData.erro || "Não foi possível concluir a verificação agora.");
+                }
+
+                etapa2.classList.remove('ativa');
+                telaSucesso.style.display = 'block';
+
+            } catch (error) {
+                console.error('Erro ao criar subconta:', error);
+                mostrarErro(msgErro2, error.message || 'Erro ao salvar. Tente novamente em instantes.');
+                btn.textContent = 'Salvar e continuar';
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('btnVoltarEtapa1').addEventListener('click', irParaEtapa1);
+        document.getElementById('btnPular2').addEventListener('click', () => {
+            window.location.href = "cadastro.html";
+        });
+
         document.getElementById('btnIrParaLista').addEventListener('click', () => {
             window.location.href = "cadastro.html";
         });
