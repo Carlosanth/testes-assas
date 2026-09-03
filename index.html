@@ -305,43 +305,31 @@
     </footer>
 
     <script type="module">
-        import { firebaseConfig } from "./js/firebase-config.js";
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import {
-            getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-            sendPasswordResetEmail, updateProfile, setPersistence,
-            browserLocalPersistence, browserSessionPersistence, onAuthStateChanged,
-            GoogleAuthProvider, OAuthProvider, signInWithPopup
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { supabase, definirPersistenciaSessao } from "./js/supabase-config.js";
 
-        const app  = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db   = getFirestore(app);
-        const googleProvider = new GoogleAuthProvider();
-        // ⚠️ Login com Apple requer conta de desenvolvedor Apple paga (Apple
-        // Developer Program) e configuração de um "Services ID" no Apple
-        // Developer + Firebase Console → Authentication → Sign-in method →
-        // Apple. Sem isso, o clique retorna auth/operation-not-allowed.
-        const appleProvider = new OAuthProvider('apple.com');
-        appleProvider.addScope('email');
-        appleProvider.addScope('name');
-
-        // ✅ NOVO: se já existe uma sessão salva (ex.: "Mantenha-me conectado"
-        // marcado num acesso anterior), pula a tela de login e manda direto
-        // pro painel — sem isso o setPersistence funcionava, mas nada aqui
-        // conferia se o usuário já estava autenticado ao abrir a página.
+        // ✅ Se já existe uma sessão salva (ex.: "Mantenha-me conectado" marcado
+        // num acesso anterior), pula a tela de login e manda direto pro lugar
+        // certo — onboarding se o cadastro não estiver completo, painel se
+        // estiver. (Antes só checava se a linha em perfis existia, o que
+        // deixava passar cadastros incompletos direto pro painel.)
         let jaRedirecionou = false;
-        onAuthStateChanged(auth, async (user) => {
-            if (user && !jaRedirecionou) {
-                jaRedirecionou = true;
-                try {
-                    const perfilDoc = await getDoc(doc(db, "perfis", user.uid));
-                    window.location.href = perfilDoc.exists() ? "cadastro.html" : "onboarding.html";
-                } catch (e) {
-                    console.error("Erro ao verificar sessão existente:", e);
-                }
+        async function redirecionarSeLogado(user) {
+            if (!user || jaRedirecionou) return;
+            jaRedirecionou = true;
+            try {
+                const { data: perfil } = await supabase
+                    .from("perfis")
+                    .select("dados_saque_completos")
+                    .eq("id", user.id)
+                    .maybeSingle();
+                window.location.href = perfil?.dados_saque_completos ? "cadastro.html" : "onboarding.html";
+            } catch (e) {
+                console.error("Erro ao verificar sessão existente:", e);
+                jaRedirecionou = false;
             }
+        }
+        supabase.auth.onAuthStateChange((_event, session) => {
+            redirecionarSeLogado(session?.user ?? null);
         });
 
         const boxLogin      = document.getElementById('box-login');
@@ -459,28 +447,28 @@
             divErro.className = 'msg-erro sucesso visivel';
         }
 
-        function mensagemErroLogin(codigo) {
-            switch (codigo) {
-                case 'auth/invalid-credential':
-                case 'auth/wrong-password':
-                case 'auth/user-not-found':
-                    return 'E-mail ou senha incorretos.';
-                case 'auth/invalid-email':
-                    return 'E-mail inválido.';
-                case 'auth/user-disabled':
-                    return 'Esta conta foi desativada. Entre em contato com o suporte.';
-                case 'auth/too-many-requests':
-                    return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
-                case 'auth/operation-not-allowed':
-                    return 'Este método de login ainda não está habilitado. Tente com e-mail e senha.';
-                case 'auth/popup-closed-by-user':
-                    return 'Janela fechada antes de concluir o login.';
-                default:
-                    return 'Erro ao entrar. Verifique seus dados e tente novamente.';
+        function mensagemErroLogin(erro) {
+            const codigo = erro?.code ?? '';
+            const msg    = (erro?.message ?? '').toLowerCase();
+            if (codigo === 'invalid_credentials' || msg.includes('invalid login credentials')) {
+                return 'E-mail ou senha incorretos.';
             }
+            if (codigo === 'email_not_confirmed' || msg.includes('email not confirmed')) {
+                return 'Confirme seu e-mail antes de entrar (verifique sua caixa de entrada).';
+            }
+            if (codigo === 'user_banned') {
+                return 'Esta conta foi desativada. Entre em contato com o suporte.';
+            }
+            if (codigo === 'over_request_rate_limit' || codigo === 'over_email_send_rate_limit') {
+                return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+            }
+            if (codigo === 'validation_failed' || msg.includes('invalid email')) {
+                return 'E-mail inválido.';
+            }
+            return 'Erro ao entrar. Verifique seus dados e tente novamente.';
         }
 
-        // ── Login — checa se perfil já foi preenchido ──────────
+        // ── Login — checa se o cadastro está completo ──────────
         document.getElementById('btnEntrar').addEventListener('click', async () => {
             const email = document.getElementById('loginEmail').value.trim().toLowerCase();
             const senha = document.getElementById('loginSenha').value;
@@ -499,101 +487,63 @@
             btn.disabled = true;
             limparErros();
 
-            try {
-                // ✅ NOVO: "Mantenha-me conectado" desmarcada = sessão termina
-                // ao fechar a aba/navegador (útil em computador compartilhado).
-                // Marcada (padrão) = comportamento normal do Firebase, que já
-                // mantém a sessão salva entre visitas.
-                const manterConectado = document.getElementById('chkManterConectado')?.checked ?? true;
-                await setPersistence(auth, manterConectado ? browserLocalPersistence : browserSessionPersistence);
+            // ✅ "Mantenha-me conectado" desmarcada = sessão termina ao fechar
+            // a aba/navegador (útil em computador compartilhado). Marcada
+            // (padrão) = sessão sobrevive entre visitas, como antes.
+            const manterConectado = document.getElementById('chkManterConectado')?.checked ?? true;
+            definirPersistenciaSessao(manterConectado);
 
-                const cred = await signInWithEmailAndPassword(auth, email, senha);
-                const perfilDoc = await getDoc(doc(db, "perfis", cred.user.uid));
-                if (perfilDoc.exists()) {
-                    window.location.href = "cadastro.html";
-                } else {
-                    window.location.href = "onboarding.html";
-                }
-            } catch (error) {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
+            if (error) {
                 console.error("Erro no login:", error.code, error.message);
-                mostrarErro(erroLogin, boxLogin, mensagemErroLogin(error.code));
+                mostrarErro(erroLogin, boxLogin, mensagemErroLogin(error));
                 btn.textContent = 'Entrar';
                 btn.disabled = false;
-            }
-        });
-
-        // ── Login social (Google / Apple) ──────────────────────
-        // ⚠️ Google requer habilitar o provedor em Firebase Console →
-        // Authentication → Sign-in method. Apple requer, além disso, conta
-        // paga no Apple Developer Program + Services ID configurado lá e
-        // aqui no Firebase. Sem isso, retorna auth/operation-not-allowed.
-        //
-        // O consentimento aos Termos/Privacidade aqui é informado pelo texto
-        // abaixo dos botões (.card-legal), não por um checkbox — travar o
-        // clique com checkbox faria até quem já tem conta reconfirmar toda
-        // vez que fosse logar, já que login e cadastro social são o mesmo
-        // fluxo (o Firebase não distingue antes da autenticação).
-        const btnGoogleEl = document.getElementById('btnGoogle');
-        const btnAppleEl  = document.getElementById('btnApple');
-
-        async function finalizarLoginSocial(cred) {
-            const perfilRef = doc(db, "perfis", cred.user.uid);
-            const perfilDoc = await getDoc(perfilRef);
-            if (perfilDoc.exists()) {
-                window.location.href = "cadastro.html";
                 return;
             }
-            // Primeiro acesso via login social — registra o aceite dos
-            // termos (o texto perto do botão já deixava isso implícito).
-            try {
-                await setDoc(perfilRef, {
-                    termos_aceite: { versao: "1.0", data: new Date().toISOString() }
-                }, { merge: true });
-            } catch (e) {
-                console.warn("Não foi possível registrar aceite dos termos:", e);
-            }
-            window.location.href = "onboarding.html";
-        }
+
+            const { data: perfil } = await supabase
+                .from("perfis")
+                .select("dados_saque_completos")
+                .eq("id", data.user.id)
+                .maybeSingle();
+            window.location.href = perfil?.dados_saque_completos ? "cadastro.html" : "onboarding.html";
+        });
+
+        // ── Login com Google ────────────────────────────────────
+        // ⚠️ Precisa habilitar o provedor Google em Supabase → Authentication
+        // → Providers, com Client ID/Secret do Google Cloud Console, e
+        // registrar a URL de callback do Supabase lá.
+        //
+        // ⚠️ MUDANÇA DE COMPORTAMENTO: o Firebase abria o Google num popup e
+        // voltava pra mesma página. O Supabase Auth usa redirect (a aba INTEIRA
+        // vai pro Google e volta) — não dá pra fazer popup sem trabalho extra.
+        // O usuário será trazido de volta para cá (redirectTo abaixo), e o
+        // onAuthStateChange no topo do script cuida do redirecionamento final.
+        //
+        // O consentimento aos Termos/Privacidade aqui é informado pelo texto
+        // abaixo do botão (.card-legal), não por um checkbox — travar o clique
+        // com checkbox faria até quem já tem conta reconfirmar toda vez que
+        // fosse logar, já que login e cadastro social são o mesmo fluxo.
+        const btnGoogleEl = document.getElementById('btnGoogle');
 
         btnGoogleEl.addEventListener('click', async () => {
             btnGoogleEl.disabled = true;
             limparErros();
-            try {
-                const cred = await signInWithPopup(auth, googleProvider);
-                await finalizarLoginSocial(cred);
-            } catch (error) {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin + window.location.pathname },
+            });
+            if (error) {
                 console.error("Erro no login com Google:", error.code, error.message);
-                if (error.code !== 'auth/popup-closed-by-user') {
-                    mostrarErro(erroLogin, boxLogin, mensagemErroLogin(error.code));
-                }
-            } finally {
+                mostrarErro(erroLogin, boxLogin, mensagemErroLogin(error));
                 btnGoogleEl.disabled = false;
             }
-        });
-
-        // ✅ CORRIGIDO: o botão do Apple foi removido do HTML (login via
-        // Apple exige conta paga no Apple Developer Program), mas o
-        // addEventListener continuava tentando grudar em um elemento que
-        // não existe mais — "Cannot read properties of null" toda vez que
-        // a página carregava. Só liga o listener se o botão existir.
-        btnAppleEl?.addEventListener('click', async () => {
-            btnAppleEl.disabled = true;
-            limparErros();
-            try {
-                const cred = await signInWithPopup(auth, appleProvider);
-                await finalizarLoginSocial(cred);
-            } catch (error) {
-                console.error("Erro no login com Apple:", error.code, error.message);
-                if (error.code !== 'auth/popup-closed-by-user') {
-                    mostrarErro(erroLogin, boxLogin, mensagemErroLogin(error.code));
-                }
-            } finally {
-                btnAppleEl.disabled = false;
-            }
+            // Em caso de sucesso a página já está navegando pro Google, nada mais a fazer aqui.
         });
 
         // ── Cadastro → vai ao onboarding ───────────────────────
-        // ✅ NOVO: botão de criar conta só libera quando o checkbox de
+        // ✅ botão de criar conta só libera quando o checkbox de
         // Termos/Privacidade estiver marcado.
         const checkAceiteTermos = document.getElementById('cadastroAceiteTermos');
         const btnCadastrarEfetivoEl = document.getElementById('btnCadastrarEfetivo');
@@ -610,8 +560,8 @@
             if (!nome)            { mostrarErro(erroCadastro, boxCadastro, 'Informe seu nome.'); return; }
             if (!email)           { mostrarErro(erroCadastro, boxCadastro, 'Informe seu e-mail.'); return; }
             if (senha.length < 7) { mostrarErro(erroCadastro, boxCadastro, 'A senha deve ter no mínimo 7 caracteres.'); return; }
-            // ✅ NOVO: trava de segurança extra (além do atributo required e do
-            // botão desabilitado) — garante que ninguém contorna via console.
+            // Trava de segurança extra (além do atributo required e do botão
+            // desabilitado) — garante que ninguém contorna via console.
             if (!checkAceiteTermos?.checked) {
                 mostrarErro(erroCadastro, boxCadastro, 'É necessário concordar com os Termos de Uso e a Política de Privacidade.');
                 return;
@@ -621,32 +571,50 @@
             btn.disabled = true;
             limparErros();
 
-            try {
-                const cred = await createUserWithEmailAndPassword(auth, email, senha);
-                await updateProfile(cred.user, { displayName: nome });
-                // ✅ NOVO: registra QUAL versão dos termos e QUANDO a pessoa
-                // aceitou — é isso (não o formato do arquivo) que serve como
-                // prova em caso de disputa sobre o que estava valendo na data.
-                try {
-                    await setDoc(doc(db, "perfis", cred.user.uid), {
-                        termos_aceite: {
-                            versao: "1.0",
-                            data: new Date().toISOString(),
-                        }
-                    }, { merge: true });
-                } catch (e) {
-                    console.warn("Não foi possível registrar aceite dos termos:", e);
-                }
-                window.location.href = "onboarding.html";
-            } catch (error) {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password: senha,
+                options: { data: { nome } },
+            });
+
+            if (error) {
                 console.error("Erro no cadastro:", error.code, error.message);
-                const msg = error.code === 'auth/email-already-in-use'
+                const msg = error.code === 'user_already_exists'
                     ? 'Este e-mail já está cadastrado. Tente fazer login.'
                     : 'Erro ao criar conta. Verifique os dados e tente novamente.';
                 mostrarErro(erroCadastro, boxCadastro, msg);
                 btn.textContent = 'Criar conta';
                 btn.disabled = false;
+                return;
             }
+
+            // ⚠️ Se a confirmação de e-mail estiver ligada no projeto (Supabase
+            // → Authentication → Settings → "Confirm email"), data.session vem
+            // null aqui — a pessoa precisa clicar no link do e-mail antes de
+            // ter uma sessão ativa. Trate esse caso antes de ir pra produção.
+            if (!data.session) {
+                mostrarSucesso(erroCadastro, '✅ Conta criada! Confira seu e-mail para confirmar antes de continuar.');
+                btn.textContent = 'Criar conta';
+                btn.disabled = false;
+                return;
+            }
+
+            // Registra QUAL versão dos termos e QUANDO a pessoa aceitou — é
+            // isso (não o formato do registro) que serve como prova em caso
+            // de disputa sobre o que estava valendo na data.
+            try {
+                await supabase.from("perfis").upsert({
+                    id: data.user.id,
+                    nome,
+                    email,
+                    termos_aceite: true,
+                    termos_versao: "1.0",
+                    termos_aceite_em: new Date().toISOString(),
+                });
+            } catch (e) {
+                console.warn("Não foi possível registrar aceite dos termos:", e);
+            }
+            window.location.href = "onboarding.html";
         });
 
         // ── Recuperar senha ────────────────────────────────────
@@ -660,16 +628,23 @@
             btn.disabled = true;
             limparErros();
 
-            try {
-                await sendPasswordResetEmail(auth, email);
-                mostrarSucesso(erroRecuperar, '✅ Link enviado! Verifique sua caixa de entrada.');
-                btn.textContent = 'Reenviar link';
-                btn.disabled = false;
-            } catch {
+            // ⚠️ Aponta pra uma página "redefinir-senha.html" que ainda não
+            // existe no front — precisa ser criada (formulário de nova senha
+            // usando supabase.auth.updateUser({ password })) antes de ir pra
+            // produção, senão o link do e-mail não tem pra onde levar.
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + '/redefinir-senha.html',
+            });
+
+            if (error) {
                 mostrarErro(erroRecuperar, boxRecuperar, 'E-mail não encontrado. Verifique o endereço.');
                 btn.textContent = 'Enviar link';
                 btn.disabled = false;
+                return;
             }
+            mostrarSucesso(erroRecuperar, '✅ Link enviado! Verifique sua caixa de entrada.');
+            btn.textContent = 'Reenviar link';
+            btn.disabled = false;
         });
     </script>
 
