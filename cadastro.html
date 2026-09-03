@@ -2373,21 +2373,35 @@
         async function carregarTaxaDoFirestore() {
             if (!usuarioAtualUid) return;
             try {
-                // 1. Taxa oficial vinda do admin — única fonte de verdade.
-                //    Lida aqui no servidor, não pode ser manipulada via console.
-                const adminSnap = await getDoc(doc(db, "admin_config", "global"));
-                if (adminSnap.exists() && adminSnap.data().taxa_percentual != null) {
-                    TAXA_PERCENTUAL = parseFloat(adminSnap.data().taxa_percentual);
-                    const labelTaxa = document.getElementById('taxaPercentualLabel');
-                    if (labelTaxa) {
-                        labelTaxa.textContent = TAXA_PERCENTUAL.toFixed(1).replace('.', ',') + '%';
+                // 1. Taxa deste cliente específico (configuracoes.taxa_percentual) —
+                // só o admin consegue alterar (trigger no banco barra o próprio
+                // cliente). Se ainda não existir, cai no valor padrão global.
+                const { data: config } = await supabase
+                    .from("configuracoes")
+                    .select("taxa_percentual, taxa_quem_paga")
+                    .eq("usuario_id", usuarioAtualUid)
+                    .maybeSingle();
+
+                if (config?.taxa_percentual != null) {
+                    TAXA_PERCENTUAL = parseFloat(config.taxa_percentual);
+                } else {
+                    const { data: admConfig } = await supabase
+                        .from("admin_config")
+                        .select("valor")
+                        .eq("chave", "taxa")
+                        .maybeSingle();
+                    if (admConfig?.valor?.percentual != null) {
+                        TAXA_PERCENTUAL = parseFloat(admConfig.valor.percentual);
                     }
+                }
+                const labelTaxa = document.getElementById('taxaPercentualLabel');
+                if (labelTaxa) {
+                    labelTaxa.textContent = TAXA_PERCENTUAL.toFixed(1).replace('.', ',') + '%';
                 }
 
                 // 2. Preferência do cliente (convidado paga / eu pago)
-                const snap = await getDoc(doc(db, "configuracoes", usuarioAtualUid));
-                if (snap.exists() && snap.data().taxa_quem_paga) {
-                    taxaQuemPaga = snap.data().taxa_quem_paga;
+                if (config?.taxa_quem_paga) {
+                    taxaQuemPaga = config.taxa_quem_paga;
                     atualizarBotoesTaxa();
                 }
                 // Não renderiza nada aqui: a lista de produtos (escutarProdutosDoBanco)
@@ -2399,10 +2413,14 @@
         async function salvarTaxaNoFirestore() {
             if (!usuarioAtualUid) return;
             try {
-                await setDoc(doc(db, "configuracoes", usuarioAtualUid),
-                    { taxa_quem_paga: taxaQuemPaga }, // taxa_percentual vem do admin_config, não é gravada aqui
-                    { merge: true }
-                );
+                // taxa_percentual não é enviado aqui de propósito — o gatilho
+                // configuracoes_lock_taxa no banco rejeita qualquer alteração
+                // dela vinda de quem não é admin.
+                const { error: erroConfig } = await supabase
+                    .from("configuracoes")
+                    .upsert({ usuario_id: usuarioAtualUid, taxa_quem_paga: taxaQuemPaga });
+                if (erroConfig) throw erroConfig;
+
                 // Atualizar preco_centavos apenas dos itens AINDA DISPONÍVEIS.
                 // Itens já vendidos mantêm a taxa que valia no momento da venda —
                 // mudar o toggle depois não pode reescrever o histórico de quem
@@ -2415,15 +2433,15 @@
                 const promises = itensDisponiveis.map(p => {
                     const original = parseInt(p.preco_original_centavos || p.preco_centavos || 0);
                     const novoCentavos = Math.round(original * fator);
-                    const novoPreco = (novoCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                    return updateDoc(doc(db, "presentes", p.id), {
-                        preco_original_centavos: original.toString(),
-                        preco_centavos: novoCentavos.toString(),
-                        preco: novoPreco,
+                    return supabase.from("presentes").update({
+                        preco_original_centavos: original,
+                        preco_centavos: novoCentavos,
                         taxa_quem_paga: taxaQuemPaga
-                    }); // taxa_percentual não é regravada — valor original do cadastro é mantido
+                    }).eq("id", p.id); // taxa_percentual não é regravada — valor original do cadastro é mantido
                 });
-                await Promise.all(promises);
+                const resultados = await Promise.all(promises);
+                const algumErro = resultados.find(r => r.error);
+                if (algumErro) throw algumErro.error;
                 mostrarToast('Taxa atualizada nos itens disponíveis!', 'sucesso', '💸');
             } catch(e) {
                 console.error("Erro ao salvar taxa:", e);
@@ -3612,27 +3630,32 @@
         const inputTitBV   = document.getElementById('inputTituloBoasVindas');
         const inputDescBV  = document.getElementById('inputDescricaoBoasVindas');
 
-        // Carrega prefs salvas no Firebase ao abrir o painel
+        // Carrega prefs salvas no Supabase ao abrir o painel
         async function carregarModoDisplay() {
             if (!usuarioAtualUid) return;
             try {
-                const snap = await getDoc(doc(db, "configuracoes", usuarioAtualUid));
-                if (snap.exists()) {
-                    const d = snap.data();
+                const { data: d, error } = await supabase
+                    .from("configuracoes")
+                    .select("modo_display, cor_primaria, titulo_boas_vindas, descricao_boas_vindas, data_evento")
+                    .eq("usuario_id", usuarioAtualUid)
+                    .maybeSingle();
+                if (error) throw error;
+                if (d) {
                     if (d.modo_display) {
                         toggleModo.checked = d.modo_display === 'claro';
                         if (typeof syncThumb === 'function') syncThumb();
                     }
-                    if (d.cor_tema && inputCorTema) {
-                        inputCorTema.value = d.cor_tema;
+                    // cor_tema (nome usado no front) = coluna cor_primaria no banco
+                    if (d.cor_primaria && inputCorTema) {
+                        inputCorTema.value = d.cor_primaria;
                         const bolha = document.getElementById('corBolha');
-                        if (bolha) bolha.style.background = d.cor_tema;
+                        if (bolha) bolha.style.background = d.cor_primaria;
                     }
                     if (d.titulo_boas_vindas && inputTitBV) inputTitBV.value = d.titulo_boas_vindas;
                     if (d.descricao_boas_vindas && inputDescBV) inputDescBV.value = d.descricao_boas_vindas;
                     if (d.data_evento) {
                         const inpDataEvento = document.getElementById('inputDataEvento');
-                        // Firestore salva como string ISO; datetime-local precisa de "YYYY-MM-DDTHH:MM"
+                        // Postgres devolve ISO com timezone; datetime-local precisa de "YYYY-MM-DDTHH:MM"
                         if (inpDataEvento) inpDataEvento.value = d.data_evento.slice(0, 16);
                     }
                     if (typeof aplicarPreviewMini === 'function') aplicarPreviewMini();
@@ -3652,20 +3675,23 @@
                 btnSalvarPreferencias.disabled = true;
 
                 try {
-                    const dadosParaSalvar = { cor_tema: corEscolhida, modo_display: modoDisplay };
+                    // cor_tema (nome do front) = coluna cor_primaria; imagem_fundo
+                    // (nome do front) = coluna tema (já existia com esse nome).
+                    const dadosParaSalvar = { usuario_id: usuarioAtualUid, cor_primaria: corEscolhida, modo_display: modoDisplay };
                     if (imagemSelecionadaParaO_Banco !== "") {
-                        dadosParaSalvar.imagem_fundo = imagemSelecionadaParaO_Banco;
+                        dadosParaSalvar.tema = imagemSelecionadaParaO_Banco;
                     }
                     if (inputTitBV)  dadosParaSalvar.titulo_boas_vindas    = inputTitBV.value.trim();
                     if (inputDescBV) dadosParaSalvar.descricao_boas_vindas = inputDescBV.value.trim();
                     const inpDataEvento = document.getElementById('inputDataEvento');
                     if (inpDataEvento) {
-                        // Salva como ISO string ou remove se vazio
+                        // Salva como ISO string ou null se vazio
                         const val = inpDataEvento.value;
-                        dadosParaSalvar.data_evento = val ? new Date(val).toISOString() : '';
+                        dadosParaSalvar.data_evento = val ? new Date(val).toISOString() : null;
                     }
 
-                    await setDoc(doc(db, "configuracoes", usuarioAtualUid), dadosParaSalvar, { merge: true });
+                    const { error } = await supabase.from("configuracoes").upsert(dadosParaSalvar);
+                    if (error) throw error;
                     mostrarToast('Preferências salvas!', 'sucesso', '🎨');
                     limparDirty();
                     document.querySelector('.area-temas').classList.remove('ativo');
