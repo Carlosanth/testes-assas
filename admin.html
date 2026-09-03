@@ -88,6 +88,9 @@
             <button class="nav-item" data-secao="banco-imagens">
                 <span class="icon">🖼️</span><span>Banco de Imagens</span>
             </button>
+            <button class="nav-item" data-secao="temas">
+                <span class="icon">🎨</span><span>Temas</span>
+            </button>
             <button class="nav-item" data-secao="comunicados">
                 <span class="icon">📢</span><span>Comunicados</span>
             </button>
@@ -529,6 +532,23 @@
             </div>
         </section>
 
+        <!-- ===== SEÇÃO: TEMAS (papéis de parede prontos) ===== -->
+        <section class="secao" id="secao-temas">
+            <div class="lp-toolbar">
+                <div class="lp-toolbar-acoes">
+                    <button class="btn-lp-primario" id="btnNovoTema">➕ Novo tema</button>
+                </div>
+            </div>
+            <p style="font-size:12px; color:var(--text2); margin:0 0 16px;">
+                Papéis de parede que aparecem no carrossel "Temas da lista" pro cliente escolher.
+                Isso não impede o cliente de subir uma imagem própria — ele pode usar a dele
+                normalmente, essas opções aqui são só sugestões prontas.
+            </p>
+            <div class="lp-grid-itens" id="temasGrid">
+                <div class="lp-vazio">Carregando...</div>
+            </div>
+        </section>
+
         <section class="secao" id="secao-comunicados">
             <div class="taxa-config-card" style="margin-bottom:20px;">
                 <h3>📢 Novo comunicado global</h3>
@@ -724,6 +744,27 @@
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
             <button class="btn-tabela" id="btnCancelarImagemBanco" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
             <button class="btn-tabela btn-marcar-pago" id="btnSalvarImagemBanco">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL NOVO/EDITAR TEMA -->
+<div class="modal-admin" id="modalTema">
+    <div class="modal-admin-content" style="max-width:440px;">
+        <div class="modal-admin-header">
+            <h3 id="modalTemaTitulo">➕ Novo tema</h3>
+            <button class="btn-fechar-modal" id="btnFecharModalTema">✕</button>
+        </div>
+        <span class="label-form-admin">Nome do tema</span>
+        <input type="text" id="inputTemaNome" class="campo-form-admin" placeholder="Ex: Floral rosê">
+        <span class="label-form-admin">Ordem no carrossel</span>
+        <input type="number" id="inputTemaOrdem" class="campo-form-admin" placeholder="0" min="0" step="1">
+        <span class="label-form-admin">Imagem</span>
+        <img id="temaPreview" class="lp-preview-imagem" alt="Pré-visualização">
+        <input type="file" id="inputTemaArquivo" class="upload-form-admin" accept="image/*">
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+            <button class="btn-tabela" id="btnCancelarTema" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
+            <button class="btn-tabela btn-marcar-pago" id="btnSalvarTema">Salvar</button>
         </div>
     </div>
 </div>
