@@ -240,29 +240,25 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { firebaseConfig, cloudFunctions } from "./js/firebase-config.js";
-
-        const app  = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db   = getFirestore(app);
+        import { supabase, edgeFunctions } from "./js/supabase-config.js";
 
         let usuarioAtual = null;
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
+        supabase.auth.getSession().then(async ({ data }) => {
+            if (!data?.session?.user) {
                 window.location.href = "index.html";
                 return;
             }
-            usuarioAtual = user;
+            usuarioAtual = data.session.user;
 
             // Se os dados já estiverem completos, não faz sentido mostrar o
             // formulário de novo — volta direto pra lista.
-            const perfilSnap = await getDoc(doc(db, "perfis", usuarioAtual.uid));
-            const perfil = perfilSnap.data() || {};
-            if (perfil.subconta_asaas_status === "criada") {
+            const { data: perfil } = await supabase
+                .from("perfis")
+                .select("subconta_asaas_status")
+                .eq("id", usuarioAtual.id)
+                .maybeSingle();
+            if (perfil?.subconta_asaas_status === "criada") {
                 window.location.href = "cadastro.html";
             }
         });
@@ -338,27 +334,39 @@
             btn.textContent = 'Enviando...';
             btn.disabled = true;
 
-            try {
-                // 1. Salva os dados no perfil (fonte de verdade no seu Firestore)
-                await setDoc(doc(db, "perfis", usuarioAtual.uid), {
-                    endereco_cep:         cep,
-                    endereco_rua:         endereco,
-                    endereco_numero:      numero,
-                    endereco_bairro:      bairro,
-                    endereco_complemento: complemento || null,
-                    data_nascimento:      nascimento,
-                    renda_mensal_faixa:   renda,
-                    dados_saque_completos: true,
-                    subconta_asaas_status: "pendente",
-                }, { merge: true });
+            // 1. Salva os dados no perfil (fonte de verdade agora é o Postgres)
+            const { error: erroSalvar } = await supabase.from("perfis").upsert({
+                id:                    usuarioAtual.id,
+                endereco_cep:          cep,
+                endereco_rua:          endereco,
+                endereco_numero:       numero,
+                endereco_bairro:       bairro,
+                endereco_complemento:  complemento || null,
+                data_nascimento:       nascimento,
+                renda_mensal_faixa:    Number(renda),
+                dados_saque_completos: true,
+                subconta_asaas_status: "pendente",
+            });
 
-                // 2. Chama a function que cria a subconta no Asaas com
-                // esses dados. A function relê o perfil no Firestore —
-                // aqui só precisamos avisar qual usuário processar.
-                const resp = await fetch(cloudFunctions.criarSubcontaAsaas, {
+            if (erroSalvar) {
+                console.error('Erro ao salvar dados de recebimento:', erroSalvar);
+                mostrarErro('Erro ao salvar. Tente novamente em instantes.');
+                btn.textContent = 'Salvar e continuar';
+                btn.disabled = false;
+                return;
+            }
+
+            // 2. Chama a Edge Function que cria a subconta no Asaas com esses
+            // dados. A function relê o perfil no Postgres e identifica o
+            // usuário pelo token da sessão atual — não manda uid solto.
+            const { data: sessaoAtual } = await supabase.auth.getSession();
+            try {
+                const resp = await fetch(edgeFunctions.criarSubconta, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ uid: usuarioAtual.uid }),
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
+                    },
                 });
 
                 if (!resp.ok) {
@@ -370,7 +378,7 @@
                 document.getElementById('tela-sucesso').style.display = 'block';
 
             } catch (error) {
-                console.error('Erro ao salvar dados de recebimento:', error);
+                console.error('Erro ao criar subconta:', error);
                 mostrarErro(error.message || 'Erro ao salvar. Tente novamente em instantes.');
                 btn.textContent = 'Salvar e continuar';
                 btn.disabled = false;

@@ -347,23 +347,14 @@
     </div>
 
     <script type="module">
-        import { firebaseConfig } from './js/firebase-config.js';
-        import { initializeApp }  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc }   from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        
-
-        const app  = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db   = getFirestore(app);
+        import { supabase } from './js/supabase-config.js';
 
         let usuarioAtual = null;
 
         // Garante que só acessa autenticado
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                usuarioAtual = user;
+        supabase.auth.getSession().then(({ data }) => {
+            if (data?.session?.user) {
+                usuarioAtual = data.session.user;
             } else {
                 window.location.href = "index.html";
             }
@@ -453,38 +444,31 @@
             btn.textContent = 'Salvando...';
             btn.disabled    = true;
 
-            try {
-                // ✅ CORRIGIDO: adicionado { merge: true } — sem isso, esse
-                // setDoc substituía o documento INTEIRO do perfil, apagando o
-                // campo termos_aceite (versão + data do aceite dos Termos de
-                // Uso/Política de Privacidade) que foi salvo na tela de
-                // cadastro, logo antes desta etapa.
-                await setDoc(doc(db, "perfis", usuarioAtual.uid), {
-                    uid:          usuarioAtual.uid,
-                    nome:         usuarioAtual.displayName || '',
-                    email:        usuarioAtual.email || '',
-                    cpf:          cpf,
-                    telefone:     telefone,
-                    cidade:       cidade,
-                    estado:       estado,
-                    criado_em:    new Date().toISOString(),
-                    perfil_completo: true
-                }, { merge: true });
+            const { error } = await supabase.from("perfis").upsert({
+                id:       usuarioAtual.id,
+                nome:     usuarioAtual.user_metadata?.nome || '',
+                email:    usuarioAtual.email || '',
+                cpf:      cpf,
+                telefone: telefone,
+                cidade:   cidade,
+                estado:   estado,
+            });
 
-                // Atualiza barra de progresso
-                document.getElementById('passo2').className = 'passo completo';
-                document.getElementById('passo3').className = 'passo ativo';
-
-                // Exibe tela de sucesso
-                document.getElementById('tela-form').style.display    = 'none';
-                document.getElementById('tela-sucesso').style.display = 'block';
-
-            } catch (error) {
+            if (error) {
                 console.error('Erro ao salvar perfil:', error);
                 mostrarErro('Erro ao salvar. Tente novamente.');
                 btn.textContent = 'Salvar e continuar';
                 btn.disabled    = false;
+                return;
             }
+
+            // Atualiza barra de progresso
+            document.getElementById('passo2').className = 'passo completo';
+            document.getElementById('passo3').className = 'passo ativo';
+
+            // Exibe tela de sucesso
+            document.getElementById('tela-form').style.display    = 'none';
+            document.getElementById('tela-sucesso').style.display = 'block';
         });
 
         // ── Pular por enquanto ───────────────────────────────
