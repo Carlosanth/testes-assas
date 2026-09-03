@@ -577,16 +577,10 @@
     </div>
 
     <script type="module">
-        import { firebaseConfig } from './js/firebase-config.js';
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, deleteDoc, updateDoc, getDocs, getDoc, collection, query, where, onSnapshot, serverTimestamp, orderBy, deleteField, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { supabase, edgeFunctions } from './js/supabase-config.js';
+
 
         
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
 
         const URL_BASE_SITE = "https://www.escolhaseupresente.com/lista.html";
         const LIMITE_ITENS = 1000;
@@ -1462,49 +1456,75 @@
         // ================================================================
         // AUTH
         // ================================================================
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                usuarioAtualUid = user.uid;
-                // Preenche avatar dropdown com dados do usuário
-                const email = user.email || '';
-                const displayName = user.displayName || '';
-                const nomeExibicao = displayName || email.split('@')[0] || 'Usuário';
-                const letra = nomeExibicao.charAt(0).toUpperCase();
+        // ================================================================
+        // AUTH
+        // ================================================================
+        let usuarioAtualJaInicializado = false;
 
-                const avatarDropCirculo = document.getElementById('avatarDropCirculo'); // SVG, não precisa de letra
-                const avatarNome = document.getElementById('avatarNome');
-                const userLogadoEmail = document.getElementById('userLogadoEmail');
+        async function iniciarSessaoUsuario(user) {
+            usuarioAtualUid = user.id;
+            // Preenche avatar dropdown com dados do usuário
+            const email = user.email || '';
+            const displayName = user.user_metadata?.nome || '';
+            const nomeExibicao = displayName || email.split('@')[0] || 'Usuário';
+            const letra = nomeExibicao.charAt(0).toUpperCase();
 
-                if (avatarNome) avatarNome.textContent = nomeExibicao;
-                if (userLogadoEmail) userLogadoEmail.textContent = email;
+            const avatarDropCirculo = document.getElementById('avatarDropCirculo'); // SVG, não precisa de letra
+            const avatarNome = document.getElementById('avatarNome');
+            const userLogadoEmail = document.getElementById('userLogadoEmail');
 
-                // Salva e-mail nas configurações para o painel admin conseguir identificar o cliente
-                setDoc(doc(db, "configuracoes", user.uid), { email: user.email }, { merge: true }).catch(() => {});
-                escutarCategoriasDoBanco();
-                carregarImagensCarrosel();
-                // IMPORTANTE: a taxa precisa terminar de carregar ANTES de começar
-                // a escutar/renderizar produtos. Antes as duas chamadas rodavam em
-                // paralelo e competiam: se o snapshot de produtos chegasse primeiro,
-                // os itens eram desenhados com a taxa padrão (errada) e o toggle
-                // ficava fora de sincronia com o texto de cada card.
-                await carregarTaxaDoFirestore();
-                await carregarValorMinimoSaque();
-                await carregarCpfDoPerfil();
-                await carregarModoDisplay();
-                escutarProdutosDoBanco();
-                escutarMeusSaques();
-                escutarAvisosGlobais();
-            } else {
-                usuarioAtualUid = null;
-                const userLogadoEmailEl = document.getElementById('userLogadoEmail');
-                if (userLogadoEmailEl) userLogadoEmailEl.textContent = "Não autenticado";
-                containerRegistros.innerHTML = '<p style="padding:10px;">Redirecionando...</p>';
-                if (unsubscribeProdutos)       unsubscribeProdutos();
-                if (unsubscribeCategorias)     unsubscribeCategorias();
-                if (unsubscribeCategoriasCustom) unsubscribeCategoriasCustom();
-                if (unsubscribeSaques)         unsubscribeSaques();
-                window.location.href = "index.html";
+            if (avatarNome) avatarNome.textContent = nomeExibicao;
+            if (userLogadoEmail) userLogadoEmail.textContent = email;
+
+            // ⚠️ A gravação de e-mail em "configuracoes" pro admin identificar o
+            // cliente saiu daqui: o perfis.email já cumpre esse papel no
+            // Postgres (e o admin também enxerga auth.users diretamente).
+            escutarCategoriasDoBanco();
+            carregarImagensCarrosel();
+            // IMPORTANTE: a taxa precisa terminar de carregar ANTES de começar
+            // a escutar/renderizar produtos. Antes as duas chamadas rodavam em
+            // paralelo e competiam: se o snapshot de produtos chegasse primeiro,
+            // os itens eram desenhados com a taxa padrão (errada) e o toggle
+            // ficava fora de sincronia com o texto de cada card.
+            await carregarTaxaDoFirestore();
+            await carregarValorMinimoSaque();
+            await carregarCpfDoPerfil();
+            await carregarModoDisplay();
+            escutarProdutosDoBanco();
+            escutarMeusSaques();
+            escutarAvisosGlobais();
+        }
+
+        function encerrarSessaoUsuario() {
+            usuarioAtualUid = null;
+            usuarioAtualJaInicializado = false;
+            const userLogadoEmailEl = document.getElementById('userLogadoEmail');
+            if (userLogadoEmailEl) userLogadoEmailEl.textContent = "Não autenticado";
+            containerRegistros.innerHTML = '<p style="padding:10px;">Redirecionando...</p>';
+            if (unsubscribeProdutos)         unsubscribeProdutos();
+            if (unsubscribeCategorias)       unsubscribeCategorias();
+            if (unsubscribeSaques)           unsubscribeSaques();
+            window.location.href = "index.html";
+        }
+
+        // ✅ supabase.auth.onAuthStateChange dispara em mais eventos que o
+        // onAuthStateChanged do Firebase (inclusive TOKEN_REFRESHED, a cada
+        // ~1h) — sem a guarda "jaInicializado" abaixo, cada refresh de token
+        // recriaria os listeners realtime do zero (duplicando-os).
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+                if (!usuarioAtualJaInicializado) {
+                    usuarioAtualJaInicializado = true;
+                    iniciarSessaoUsuario(session.user);
+                }
+            } else if (event !== 'INITIAL_SESSION') {
+                encerrarSessaoUsuario();
             }
+        });
+        // Cobre o caso de já não haver sessão nenhuma ao carregar a página
+        // (o listener acima só reage a partir do 1º evento que o Supabase emitir).
+        supabase.auth.getSession().then(({ data }) => {
+            if (!data?.session?.user) encerrarSessaoUsuario();
         });
 
         // ================================================================
@@ -1520,7 +1540,7 @@
                 textoBotao: 'Sair',
                 callback:   async () => {
                     try {
-                        await signOut(auth);
+                        await supabase.auth.signOut();
                     } catch (error) {
                         console.error("Erro ao deslogar:", error);
                         mostrarToast('Erro ao sair. Tente novamente.', 'erro', '❌');
@@ -1532,11 +1552,27 @@
         // ================================================================
         // CATEGORIAS
         // ================================================================
-        // Guarda o resultado dos dois listeners (padrão/global + privadas do
-        // usuário) pra poder mesclar sempre que qualquer um dos dois mudar.
+        // Guarda o resultado das duas fontes (padrão/global + privadas do
+        // usuário) pra poder mesclar sempre que qualquer uma mudar.
+        // Agora cada item é {id, nome} — precisamos do id (uuid) pra gravar
+        // em presentes.categoria_id; antes, no Firestore, o nome era tudo
+        // que existia.
         let categoriasPadraoCache = [];
         let categoriasCustomCache = [];
-        let unsubscribeCategoriasCustom = null;
+        let categoriasRealtimeChannel = null;
+
+        function nomeDaCategoria(categoriaId) {
+            if (!categoriaId) return "Sem Categoria";
+            const achada = categoriasPadraoCache.find(c => c.id === categoriaId)
+                        || categoriasCustomCache.find(c => c.id === categoriaId);
+            return achada ? achada.nome : "Sem Categoria";
+        }
+
+        function idDaCategoriaPeloNome(nome) {
+            const achada = categoriasPadraoCache.find(c => c.nome === nome)
+                        || categoriasCustomCache.find(c => c.nome === nome);
+            return achada ? achada.id : null;
+        }
 
         function renderizarOpcoesCategoria() {
             const opcaoManual = '<option value="MANUAL">➕ Adicionar nova categoria...</option>';
@@ -1555,45 +1591,65 @@
             };
 
             // Padrão (globais, visíveis pra todo mundo) primeiro...
-            categoriasPadraoCache.forEach(adicionarOpcao);
+            const nomesPadrao = categoriasPadraoCache.map(c => c.nome);
+            nomesPadrao.forEach(adicionarOpcao);
             // ...depois as privadas do usuário logado (não duplica nome repetido)
             categoriasCustomCache
-                .filter(nome => !categoriasPadraoCache.includes(nome))
+                .map(c => c.nome)
+                .filter(nome => !nomesPadrao.includes(nome))
                 .forEach(adicionarOpcao);
         }
 
-        function escutarCategoriasDoBanco() {
-            try {
-                unsubscribeCategorias = onSnapshot(collection(db, "categorias"), (querySnapshot) => {
-                    categoriasPadraoCache = [];
-                    querySnapshot.forEach((docSnap) => {
-                        const catData = docSnap.data();
-                        const nomeCategoria = catData.nome || docSnap.id;
-                        if (nomeCategoria) categoriasPadraoCache.push(nomeCategoria);
-                    });
-                    renderizarOpcoesCategoria();
-                });
-            } catch (err) { console.error("Erro ao buscar categorias:", err); }
-
-            // ✅ NOVO: categorias criadas manualmente pelo usuário ficam numa
-            // subcoleção privada (usuarios/{uid}/categoriasCustom) — só ele
-            // (e ninguém mais) consegue ler/escrever nelas, então elas nunca
-            // aparecem para outros usuários cadastrando os próprios itens.
-            try {
+        async function escutarCategoriasDoBanco() {
+            async function carregarPadrao() {
+                const { data, error } = await supabase.from("categorias").select("id, nome").order("ordem");
+                if (error) { console.error("Erro ao buscar categorias:", error); return; }
+                categoriasPadraoCache = data || [];
+                renderizarOpcoesCategoria();
+            }
+            async function carregarCustom() {
                 if (!usuarioAtualUid) return;
-                unsubscribeCategoriasCustom = onSnapshot(
-                    collection(db, "usuarios", usuarioAtualUid, "categoriasCustom"),
-                    (querySnapshot) => {
-                        categoriasCustomCache = [];
-                        querySnapshot.forEach((docSnap) => {
-                            const catData = docSnap.data();
-                            const nomeCategoria = catData.nome || docSnap.id;
-                            if (nomeCategoria) categoriasCustomCache.push(nomeCategoria);
-                        });
-                        renderizarOpcoesCategoria();
-                    }
-                );
-            } catch (err) { console.error("Erro ao buscar categorias privadas:", err); }
+                const { data, error } = await supabase
+                    .from("categorias_custom")
+                    .select("id, nome")
+                    .eq("usuario_id", usuarioAtualUid);
+                if (error) { console.error("Erro ao buscar categorias privadas:", error); return; }
+                categoriasCustomCache = data || [];
+                renderizarOpcoesCategoria();
+            }
+
+            await carregarPadrao();
+            await carregarCustom();
+
+            // ✅ Substitui os dois onSnapshot por um único canal Realtime que
+            // reage a mudanças nas duas tabelas e simplesmente recarrega (a
+            // lista de categorias é pequena, não compensa reconciliar
+            // manualmente linha por linha).
+            categoriasRealtimeChannel = supabase
+                .channel(`categorias-${usuarioAtualUid}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, carregarPadrao)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias_custom', filter: `usuario_id=eq.${usuarioAtualUid}` }, carregarCustom)
+                .subscribe();
+            unsubscribeCategorias = () => supabase.removeChannel(categoriasRealtimeChannel);
+        }
+
+        // Garante que existe uma categoria privada (categorias_custom) com
+        // esse nome pro usuário atual, criando se preciso, e devolve o id.
+        // Usada quando o dono digita uma categoria nova manualmente.
+        async function garantirCategoriaCustom(nome) {
+            const existente = categoriasCustomCache.find(c => c.nome === nome);
+            if (existente) return existente.id;
+
+            const { data, error } = await supabase
+                .from("categorias_custom")
+                .insert({ usuario_id: usuarioAtualUid, nome })
+                .select("id, nome")
+                .single();
+            if (error) throw error;
+
+            categoriasCustomCache.push(data);
+            renderizarOpcoesCategoria();
+            return data.id;
         }
 
         // ================================================================
@@ -2086,7 +2142,6 @@
             // Aplica taxa conforme configuração atual
             const fatorTaxa = taxaQuemPaga === 'convidado' ? (1 + TAXA_PERCENTUAL / 100) : 1;
             const precoCentavosWebhook = Math.round(precoOriginalCentavos * fatorTaxa);
-            const precoParaWebhook = (precoCentavosWebhook / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
             btnAdicionar.value = "Salvando...";
             btnAdicionar.disabled = true;
@@ -2097,68 +2152,63 @@
                 const blob = await redimensionarImagem(fotoArquivo);
                 urlImagemFinal = await fazerUploadImagemImgBB(blob);
             } else if (urlImagemBancoSugeridaSelecionada) {
-                // ✅ NOVO: usa a imagem sugerida do banco do admin, sem precisar
+                // Usa a imagem sugerida do banco do admin, sem precisar
                 // fazer upload nenhum — ela já está hospedada.
                 urlImagemFinal = urlImagemBancoSugeridaSelecionada;
             }
 
-            const categoriaLimpa = (category || "SemCategoria").replace(/[\/#\$\.\[\]]/g, "").trim();
-            const nomeLimpo = nome.replace(/[\/#\$\.\[\]]/g, "").trim();
-            const produtoId = `${usuarioAtualUid}-${categoriaLimpa}-${nomeLimpo}`;
-
             try {
-                // Monta payload — inclui cotas se configuradas
+                // Resolve o nome da categoria pra um categoria_id: se foi
+                // digitada manualmente, garante que existe em
+                // categorias_custom (privada deste usuário); senão, procura
+                // nas categorias já carregadas (padrão + custom).
+                let categoriaId = null;
+                if (category) {
+                    categoriaId = selectCategoria.value === 'MANUAL'
+                        ? await garantirCategoriaCustom(category)
+                        : idDaCategoriaPeloNome(category);
+                }
+
                 const payloadAdicionar = {
-                    categoria:               category || "Sem Categoria",
-                    disponivel:              true,
-                    imagem:                  urlImagemFinal,
-                    preco:                   precoParaWebhook,
-                    preco_original_centavos: precoOriginalCentavos.toString(),
-                    preco_centavos:          precoCentavosWebhook.toString(),
-                    taxa_quem_paga:          taxaQuemPaga,
-                    taxa_percentual:         TAXA_PERCENTUAL,
-                    titulo:                  nome,
-                    usuario_id:              usuarioAtualUid
+                    usuario_id:               usuarioAtualUid,
+                    categoria_id:             categoriaId,
+                    disponivel:               true,
+                    imagem_url:               urlImagemFinal,
+                    preco_original_centavos:  precoOriginalCentavos,
+                    preco_centavos:           precoCentavosWebhook,
+                    taxa_quem_paga:           taxaQuemPaga,
+                    taxa_percentual:          TAXA_PERCENTUAL,
+                    titulo:                   nome,
                 };
-                // ✅ NOVO: link de referência do produto — só o dono vê (não
-                // entra em nenhuma tela do convidado). Só grava se preenchido.
+                // Link de referência do produto — só o dono vê. Só grava se preenchido.
                 const linkProdutoDigitado = inputLinkProduto?.value.trim();
                 if (linkProdutoDigitado) {
                     payloadAdicionar.link_produto = linkProdutoDigitado;
                 }
                 if (cotasSelecionadas >= 2) {
-                    payloadAdicionar.cotas_total       = cotasSelecionadas;
-                    payloadAdicionar.cotas_disponiveis = cotasSelecionadas;
+                    payloadAdicionar.cotas_total = cotasSelecionadas;
                 }
-                await setDoc(doc(db, "presentes", produtoId), payloadAdicionar);
+
+                const { error: erroInserir } = await supabase.from("presentes").insert(payloadAdicionar);
+                if (erroInserir) throw erroInserir;
 
                 // Limpa estado de cotas do formulário
                 cotasSelecionadas = 0;
                 cotasCtrl?.desativar();
 
-                if (selectCategoria.value === 'MANUAL' && category) {
-                    // ✅ CORRIGIDO: categoria digitada manualmente agora vai pra
-                    // subcoleção privada do usuário — antes ia pra "categorias"
-                    // (global), e por isso aparecia no formulário de TODO MUNDO.
-                    const catRef = doc(db, "usuarios", usuarioAtualUid, "categoriasCustom", categoriaLimpa);
-                    const catSnap = await getDoc(catRef);
-                    if (!catSnap.exists()) {
-                        await setDoc(catRef, { nome: category });
-                    }
-                }
                 limparFormulario();
                 mostrarToast('Item adicionado com sucesso!', 'sucesso', '✅');
-                // ✅ NOVO: manda o preço digitado como sugestão pendente pro
-                // banco de preços — não afeta o cadastro nem trava nada se
-                // falhar. Só manda se o cliente digitou de verdade; se o
-                // valor veio do "Usar este valor", já é dado que existe no
-                // banco, não faz sentido sugerir de volta.
+                // Manda o preço digitado como sugestão pendente pro banco de
+                // preços — não afeta o cadastro nem trava nada se falhar. Só
+                // manda se o cliente digitou de verdade; se o valor veio do
+                // "Usar este valor", já é dado que existe no banco, não faz
+                // sentido sugerir de volta.
                 if (!precoFoiSugerido) {
                     registrarSugestaoPrecoCliente(nome, precoOriginalCentavos);
                 }
                 precoFoiSugerido = false;
             } catch (error) {
-                console.error("Erro ao salvar no Firestore:", error);
+                console.error("Erro ao salvar no Supabase:", error);
                 mostrarToast('Erro ao salvar o item. Tente novamente.', 'erro', '❌');
             } finally {
                 btnAdicionar.value = "Adicionar item";
@@ -2169,56 +2219,87 @@
         // ================================================================
         // ESCUTAR PRODUTOS
         // ================================================================
-        function escutarProdutosDoBanco() {
-            const q = query(collection(db, "presentes"), where("usuario_id", "==", usuarioAtualUid));
-            unsubscribeProdutos = onSnapshot(q, (querySnapshot) => {
-                // Remove só os cards de item (.base), preservando o resto do
-                // container (mensagem "nenhum item", scroll, etc.) e evitando
-                // o "pulo" visual que innerHTML = '' causava a cada atualização.
-                containerRegistros.querySelectorAll('.base').forEach(el => el.remove());
-                const msgVazia = containerRegistros.querySelector('.msg-vazia');
-                if (msgVazia) msgVazia.remove();
+        async function buscarERenderizarProdutos() {
+            const { data: produtos, error } = await supabase
+                .from("presentes")
+                .select("*")
+                .eq("usuario_id", usuarioAtualUid)
+                .order("criado_em", { ascending: true });
 
-                totalItensAtual = querySnapshot.size;
-                todosOsProdutos = [];
+            if (error) {
+                console.error("Erro ao buscar produtos:", error);
+                return;
+            }
 
-                if (totalItensAtual === 0) {
-                    document.getElementById('resumoCards').style.display = 'none';
-                    document.getElementById('taxaBloco').style.display = 'none';
-                    containerRegistros.innerHTML = '<p class="msg-vazia" style="padding:10px; opacity:0.7;">Nenhum item cadastrado ainda.</p>';
-                } else {
-                    querySnapshot.forEach((docSnap) => {
-                        todosOsProdutos.push({ id: docSnap.id, ...docSnap.data() });
-                    });
-
-                    // Fonte de verdade do toggle: o campo taxa_quem_paga gravado
-                    // nos próprios produtos. Isso evita dessincronia caso o doc
-                    // "configuracoes/{uid}" esteja ausente, desatualizado ou
-                    // vindo do cache local do Firestore antes do servidor confirmar.
-                    document.getElementById('resumoCards').style.display = 'flex';
-                    document.getElementById('taxaBloco').style.display = 'flex';
-                    atualizarResumo();
-                    atualizarSaldo();
-                    todosOsProdutos.forEach(p => renderizarItemNaTela(p, p.id));
-                    atualizarNotificacoes();
-
-                    // Aviso único (não um por item) se houver itens sem valor definido
-                    const qtdSemValor = todosOsProdutos.filter(p => {
-                        const centavos = parseInt(p.preco_original_centavos || p.preco_centavos || 0);
-                        const vendido = p.disponivel === false && p.presenteado_por;
-                        return (!centavos || centavos <= 0) && !vendido;
-                    }).length;
-                    if (qtdSemValor > 0 && !avisoSemValorJaMostrado) {
-                        avisoSemValorJaMostrado = true;
-                        mostrarToast(
-                            qtdSemValor === 1
-                                ? '1 item está sem valor definido. Edite-o para informar o preço.'
-                                : `${qtdSemValor} itens estão sem valor definido. Edite-os para informar o preço.`,
-                            'aviso', '⚠️'
-                        );
-                    }
-                }
+            // cotas_disponiveis não existe como coluna — é calculada a partir
+            // de quantas cotas já foram ocupadas (pagas) por produto.
+            const idsComCota = produtos.filter(p => p.cotas_total >= 2).map(p => p.id);
+            const ocupadasPorProduto = {};
+            if (idsComCota.length) {
+                const { data: ocupadas } = await supabase
+                    .from("cotas_ocupadas")
+                    .select("produto_id")
+                    .in("produto_id", idsComCota);
+                (ocupadas || []).forEach(o => {
+                    ocupadasPorProduto[o.produto_id] = (ocupadasPorProduto[o.produto_id] || 0) + 1;
+                });
+            }
+            produtos.forEach(p => {
+                if (p.cotas_total >= 2) p.cotas_disponiveis = p.cotas_total - (ocupadasPorProduto[p.id] || 0);
             });
+
+            // Remove só os cards de item (.base), preservando o resto do
+            // container (mensagem "nenhum item", scroll, etc.) e evitando
+            // o "pulo" visual que innerHTML = '' causava a cada atualização.
+            containerRegistros.querySelectorAll('.base').forEach(el => el.remove());
+            const msgVazia = containerRegistros.querySelector('.msg-vazia');
+            if (msgVazia) msgVazia.remove();
+
+            totalItensAtual = produtos.length;
+            todosOsProdutos = produtos;
+
+            if (totalItensAtual === 0) {
+                document.getElementById('resumoCards').style.display = 'none';
+                document.getElementById('taxaBloco').style.display = 'none';
+                containerRegistros.innerHTML = '<p class="msg-vazia" style="padding:10px; opacity:0.7;">Nenhum item cadastrado ainda.</p>';
+            } else {
+                // Fonte de verdade do toggle: o campo taxa_quem_paga gravado
+                // nos próprios produtos.
+                document.getElementById('resumoCards').style.display = 'flex';
+                document.getElementById('taxaBloco').style.display = 'flex';
+                atualizarResumo();
+                atualizarSaldo();
+                todosOsProdutos.forEach(p => renderizarItemNaTela(p, p.id));
+                atualizarNotificacoes();
+
+                // Aviso único (não um por item) se houver itens sem valor definido
+                const qtdSemValor = todosOsProdutos.filter(p => {
+                    const centavos = parseInt(p.preco_original_centavos || p.preco_centavos || 0);
+                    const vendido = p.disponivel === false && p.presenteado_por;
+                    return (!centavos || centavos <= 0) && !vendido;
+                }).length;
+                if (qtdSemValor > 0 && !avisoSemValorJaMostrado) {
+                    avisoSemValorJaMostrado = true;
+                    mostrarToast(
+                        qtdSemValor === 1
+                            ? '1 item está sem valor definido. Edite-o para informar o preço.'
+                            : `${qtdSemValor} itens estão sem valor definido. Edite-os para informar o preço.`,
+                        'aviso', '⚠️'
+                    );
+                }
+            }
+        }
+
+        function escutarProdutosDoBanco() {
+            buscarERenderizarProdutos();
+            const canal = supabase
+                .channel(`presentes-${usuarioAtualUid}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'presentes', filter: `usuario_id=eq.${usuarioAtualUid}` }, buscarERenderizarProdutos)
+                // Cotas pagas mudam a "disponibilidade" mostrada mesmo sem o
+                // produto em si mudar — também precisa recarregar.
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'cotas_ocupadas' }, buscarERenderizarProdutos)
+                .subscribe();
+            unsubscribeProdutos = () => supabase.removeChannel(canal);
         }
 
         // ================================================================
@@ -2378,8 +2459,8 @@
             novaBaseDiv.classList.add('base');
 
             const tituloExibicao    = produto.titulo    || "Sem nome";
-            const imagemExibicao    = produto.imagem    || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg';
-            const categoriaExibicao = produto.categoria || "Sem Categoria";
+            const imagemExibicao    = produto.imagem_url || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg';
+            const categoriaExibicao = nomeDaCategoria(produto.categoria_id);
             const textoStatus = produto.disponivel !== false ? "Disponível" : "Indisponível";
             const corStatus   = produto.disponivel !== false ? "#28a745" : "#6c757d";
 
@@ -2488,7 +2569,8 @@
                         textoBotao: 'Excluir',
                         callback:   async () => {
                             try {
-                                await deleteDoc(doc(db, "presentes", documentoId));
+                                const { error } = await supabase.from("presentes").delete().eq("id", documentoId);
+                                if (error) throw error;
                                 mostrarToast(`"${tituloExibicao}" excluído.`, 'normal', '🗑️');
                             } catch (error) {
                                 console.error("Erro ao deletar item:", error);
@@ -2519,8 +2601,8 @@
         // ================================================================
         function abrirModalDetalheItem(produto) {
             const tituloExibicao    = produto.titulo    || "Sem nome";
-            const imagemExibicao    = produto.imagem    || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg';
-            const categoriaExibicao = produto.categoria || "Sem Categoria";
+            const imagemExibicao    = produto.imagem_url || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg';
+            const categoriaExibicao = nomeDaCategoria(produto.categoria_id);
 
             const originalCentavos = parseInt(produto.preco_original_centavos || produto.preco_centavos || 0);
             const semValorDefinido = !originalCentavos || originalCentavos <= 0;
@@ -2633,20 +2715,17 @@
         // ================================================================
         function abrirModalEditar(produto, documentoId) {
             editandoId = documentoId;
-            editandoImagemAtual = produto.imagem || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg';
+            editandoImagemAtual = produto.imagem_url || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg';
 
             editNome.value      = produto.titulo    || '';
-            // ✅ CORRIGIDO: usar sempre o preço ORIGINAL (sem taxa), nunca o
-            // campo "preco" (que já pode ter a taxa do convidado embutida).
-            // Carregar "preco" aqui fazia a taxa ser somada DE NOVO ao salvar,
-            // o que mudava preco_centavos/preco_original_centavos e violava a
-            // regra do Firestore que proíbe o dono de alterar esses campos —
-            // por isso a edição falhava com "Missing or insufficient permissions".
+            // Usa sempre o preço ORIGINAL (sem taxa) — salvar de volta o
+            // preço com taxa embutida faria a taxa ser somada DE NOVO.
             const precoOriginalEdicao = produto.preco_original_centavos
                 ? (parseInt(produto.preco_original_centavos, 10) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                : (produto.preco || '');
+                : '';
             editPreco.value     = precoOriginalEdicao;
-            editCategoria.value = produto.categoria || '';
+            editCategoria.value = nomeDaCategoria(produto.categoria_id);
+            if (editCategoria.value === 'Sem Categoria') editCategoria.value = '';
             if (editLinkProduto) editLinkProduto.value = produto.link_produto || '';
             editFoto.value      = '';
 
@@ -2672,10 +2751,9 @@
                         b.classList.toggle('ativo', parseInt(b.dataset.cotas) === cotasTotal);
                     });
                     // Mostra preview
-                    if (editPrev && produto.preco) {
-                        const precoLimpoP = produto.preco.replace(/R\s*\$/gi,'').replace(/ /g,'').replace(/\./g,'').replace(',','.').trim();
-                        const num = parseFloat(precoLimpoP);
-                        if (!isNaN(num) && num > 0) {
+                    if (editPrev && produto.preco_centavos) {
+                        const num = produto.preco_centavos / 100;
+                        if (num > 0) {
                             editPrev.textContent = '→ Cada cota valerá ' + (num / cotasTotal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                             editPrev.style.display = 'inline';
                         }
@@ -2734,32 +2812,27 @@
                 const editOriginalCentavos = Math.round(precoNumerico * 100);
                 const editFatorTaxa = taxaQuemPaga === 'convidado' ? (1 + TAXA_PERCENTUAL / 100) : 1;
                 const editCentavosWebhook = Math.round(editOriginalCentavos * editFatorTaxa);
-                const editPrecoWebhook = (editCentavosWebhook / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                let categoriaId = novaCat ? idDaCategoriaPeloNome(novaCat) : null;
 
                 // Payload de edição — inclui cotas se configuradas
                 const payloadEditar = {
-                    titulo:                  novoNome,
-                    preco:                   editPrecoWebhook,
-                    preco_original_centavos: editOriginalCentavos.toString(),
-                    preco_centavos:          editCentavosWebhook.toString(),
-                    taxa_quem_paga:          taxaQuemPaga,
-                    taxa_percentual:         TAXA_PERCENTUAL,
-                    categoria:               novaCat || "Sem Categoria",
-                    imagem:                  urlImagemFinal
+                    titulo:                   novoNome,
+                    preco_original_centavos:  editOriginalCentavos,
+                    preco_centavos:           editCentavosWebhook,
+                    taxa_quem_paga:           taxaQuemPaga,
+                    taxa_percentual:          TAXA_PERCENTUAL,
+                    categoria_id:             categoriaId,
+                    imagem_url:               urlImagemFinal,
                 };
-                // ✅ NOVO: link do produto — salva se preenchido, remove do
-                // documento (deleteField) se o campo foi deixado em branco.
+                // Link do produto — salva se preenchido, remove (null) se vazio.
                 const linkProdutoEditado = editLinkProduto?.value.trim();
-                payloadEditar.link_produto = linkProdutoEditado ? linkProdutoEditado : deleteField();
-                if (editCotasSelecionadas >= 2) {
-                    payloadEditar.cotas_total       = editCotasSelecionadas;
-                    payloadEditar.cotas_disponiveis = editCotasSelecionadas;
-                } else {
-                    // Remove cotas se o dono desmarcou o checkbox
-                    payloadEditar.cotas_total       = 0;
-                    payloadEditar.cotas_disponiveis = 0;
-                }
-                await updateDoc(doc(db, "presentes", editandoId), payloadEditar);
+                payloadEditar.link_produto = linkProdutoEditado || null;
+                // cotas_total = 0 remove as cotas se o dono desmarcou o checkbox
+                payloadEditar.cotas_total = editCotasSelecionadas >= 2 ? editCotasSelecionadas : 1;
+
+                const { error } = await supabase.from("presentes").update(payloadEditar).eq("id", editandoId);
+                if (error) throw error;
                 modalEditar.style.display = 'none';
                 mostrarToast('Item atualizado!', 'sucesso', '✅');
             } catch (error) {
@@ -2831,7 +2904,7 @@
             }
 
             mostrarToast('Complete seus dados de recebimento antes de compartilhar.', 'aviso', '⚠️');
-            window.location.href = "dados-recebimento.html";
+            window.location.href = "onboarding.html";
             return false;
         }
 
