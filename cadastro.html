@@ -1480,6 +1480,7 @@
             // cliente saiu daqui: o perfis.email já cumpre esse papel no
             // Postgres (e o admin também enxerga auth.users diretamente).
             escutarCategoriasDoBanco();
+            escutarListasProntas();
             carregarImagensCarrosel();
             // IMPORTANTE: a taxa precisa terminar de carregar ANTES de começar
             // a escutar/renderizar produtos. Antes as duas chamadas rodavam em
@@ -1698,8 +1699,9 @@
         async function garantirBancoImagensCarregado() {
             if (bancoImagensCacheCliente) return bancoImagensCacheCliente;
             try {
-                const snap = await getDocs(collection(db, "banco_imagens"));
-                bancoImagensCacheCliente = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const { data, error } = await supabase.from("banco_imagens").select("*");
+                if (error) throw error;
+                bancoImagensCacheCliente = data || [];
             } catch (e) {
                 console.warn("Não foi possível carregar o banco de imagens:", e.message);
                 bancoImagensCacheCliente = [];
@@ -1715,12 +1717,12 @@
             if (!chave || termosSemResultadoJaLogados.has(chave)) return;
             termosSemResultadoJaLogados.add(chave);
             try {
-                await addDoc(collection(db, "buscas_banco_imagens_sem_resultado"), {
+                const { error } = await supabase.from("buscas_banco_imagens_sem_resultado").insert({
                     termos,
                     termo_original: chave,
                     usuario_id: usuarioAtualUid || null,
-                    criado_em: serverTimestamp(),
                 });
+                if (error) throw error;
             } catch (e) {
                 // Log é "nice to have" — nunca deve travar o cadastro se falhar.
                 console.warn("Não foi possível registrar busca sem resultado:", e.message);
@@ -1794,8 +1796,9 @@
         async function garantirBancoPrecosCarregado() {
             if (bancoPrecosCacheCliente) return bancoPrecosCacheCliente;
             try {
-                const snap = await getDocs(collection(db, "banco_precos"));
-                bancoPrecosCacheCliente = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                const { data, error } = await supabase.from("banco_precos").select("*");
+                if (error) throw error;
+                bancoPrecosCacheCliente = data || [];
             } catch (e) {
                 console.warn("Não foi possível carregar o banco de preços:", e.message);
                 bancoPrecosCacheCliente = [];
@@ -1810,8 +1813,8 @@
         // alguém (admin ou aprovação de nova sugestão) atualizar o valor.
         const VALIDADE_PRECO_DIAS = 90;
         function precoAindaValido(item) {
-            if (!item.criado_em?.toMillis) return true; // sem data = não filtra, por segurança
-            const dias = (Date.now() - item.criado_em.toMillis()) / (1000 * 60 * 60 * 24);
+            if (!item.criado_em) return true; // sem data = não filtra, por segurança
+            const dias = (Date.now() - new Date(item.criado_em).getTime()) / (1000 * 60 * 60 * 24);
             return dias <= VALIDADE_PRECO_DIAS;
         }
 
@@ -1859,12 +1862,12 @@
         // depois que o produto já foi salvo com sucesso.
         async function registrarSugestaoPrecoCliente(nome, precoCentavos) {
             try {
-                await addDoc(collection(db, "sugestoes_precos_clientes"), {
+                const { error } = await supabase.from("sugestoes_precos_clientes").insert({
                     nome,
                     preco_centavos: precoCentavos,
                     usuario_id: usuarioAtualUid || null,
-                    criado_em: serverTimestamp(),
                 });
+                if (error) throw error;
             } catch (e) {
                 // Nunca deve travar o cadastro do produto por causa disso.
                 console.warn("Não foi possível registrar sugestão de preço:", e.message);
@@ -1876,25 +1879,30 @@
         let itensProntosPorCategoria = {};   // catId -> [{ id, nome, preco_centavos, imagem }]
         let unsubscribesItensProntos = {};
 
-        function escutarListasProntas() {
-            onSnapshot(collection(db, "listas_prontas"), (snap) => {
-                categoriasProntasCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        async function carregarListasProntas() {
+            const { data: listas, error: erroListas } = await supabase.from("listas_prontas").select("*").order("ordem");
+            if (erroListas) { console.error("Erro ao buscar listas prontas:", erroListas); return; }
+            categoriasProntasCache = listas || [];
 
-                categoriasProntasCache.forEach(cat => {
-                    if (!unsubscribesItensProntos[cat.id]) {
-                        unsubscribesItensProntos[cat.id] = onSnapshot(
-                            collection(db, "listas_prontas", cat.id, "itens"),
-                            (itensSnap) => {
-                                itensProntosPorCategoria[cat.id] = itensSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                                if (areaListas.classList.contains('ativo')) renderizarCategoriasProntas();
-                                if (categoriaProntaAtual === cat.id) renderizarItensProntosNaTela(cat.id);
-                            }
-                        );
-                    }
-                });
-
-                if (areaListas.classList.contains('ativo')) renderizarCategoriasProntas();
+            const { data: itens, error: erroItens } = await supabase.from("listas_prontas_itens").select("*");
+            if (erroItens) { console.error("Erro ao buscar itens das listas prontas:", erroItens); return; }
+            itensProntosPorCategoria = {};
+            (itens || []).forEach(item => {
+                if (!itensProntosPorCategoria[item.lista_id]) itensProntosPorCategoria[item.lista_id] = [];
+                itensProntosPorCategoria[item.lista_id].push(item);
             });
+
+            if (areaListas.classList.contains('ativo')) renderizarCategoriasProntas();
+            if (categoriaProntaAtual) renderizarItensProntosNaTela(categoriaProntaAtual);
+        }
+
+        function escutarListasProntas() {
+            carregarListasProntas();
+            supabase
+                .channel('listas-prontas')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'listas_prontas' }, carregarListasProntas)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'listas_prontas_itens' }, carregarListasProntas)
+                .subscribe();
         }
 
         const areaListas         = document.getElementById('areaListas');
@@ -2060,43 +2068,48 @@
             btnAddSelecionados.disabled = true;
 
             try {
-                // Garante que a categoria existe na coleção "categorias".
-                // Importante: a regra de "categorias" só libera CREATE (não
-                // update), então só gravamos se o documento ainda não existir.
+                // Garante que a categoria existe na tabela global "categorias".
                 const nomeCategoria = cat?.nome || 'Sem Categoria';
-                const categoriaLimpaCat = nomeCategoria.replace(/[\/#\$\.\[\]]/g, "").trim();
-                const catRef = doc(db, "categorias", categoriaLimpaCat);
-                const catSnap = await getDoc(catRef);
-                if (!catSnap.exists()) {
-                    await setDoc(catRef, { nome: nomeCategoria });
+                let categoriaId = categoriasPadraoCache.find(c => c.nome === nomeCategoria)?.id;
+                if (!categoriaId) {
+                    const { data: novaCategoria, error: erroCategoria } = await supabase
+                        .from("categorias")
+                        .insert({ nome: nomeCategoria })
+                        .select("id, nome")
+                        .single();
+                    if (erroCategoria) throw erroCategoria;
+                    categoriaId = novaCategoria.id;
+                    categoriasPadraoCache.push(novaCategoria);
+                    renderizarOpcoesCategoria();
                 }
 
+                const itensParaInserir = [];
                 for (const item of itensParaAdicionar) {
-                    if (totalItensAtual >= LIMITE_ITENS) {
+                    if (totalItensAtual + itensParaInserir.length >= LIMITE_ITENS) {
                         mostrarToast(`Limite de ${LIMITE_ITENS} itens atingido!`, 'erro', '🚫');
                         break;
                     }
                     const precoOriginalCentavos = parseInt(item.preco_centavos || 0);
                     const fatorTaxa = taxaQuemPaga === 'convidado' ? (1 + TAXA_PERCENTUAL / 100) : 1;
                     const precoCentavosWebhook = Math.round(precoOriginalCentavos * fatorTaxa);
-                    const precoParaWebhook = (precoCentavosWebhook / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-                    const nomeLimpo = item.nome.replace(/[\/#\$\.\[\]]/g, "").trim();
-                    const produtoId = `${usuarioAtualUid}-${categoriaLimpaCat}-${nomeLimpo}`;
-
-                    await setDoc(doc(db, "presentes", produtoId), {
-                        categoria:               nomeCategoria,
-                        disponivel:              true,
-                        imagem:                  item.imagem || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg',
-                        preco:                   precoParaWebhook,
-                        preco_original_centavos: precoOriginalCentavos.toString(),
-                        preco_centavos:          precoCentavosWebhook.toString(),
-                        taxa_quem_paga:          taxaQuemPaga,
-                        taxa_percentual:         TAXA_PERCENTUAL,
-                        titulo:                  item.nome,
-                        usuario_id:              usuarioAtualUid
+                    itensParaInserir.push({
+                        categoria_id:             categoriaId,
+                        disponivel:               true,
+                        imagem_url:               item.imagem || 'https://i.ibb.co/YBZJdZ2N/icon-192.jpg',
+                        preco_original_centavos:  precoOriginalCentavos,
+                        preco_centavos:           precoCentavosWebhook,
+                        taxa_quem_paga:           taxaQuemPaga,
+                        taxa_percentual:          TAXA_PERCENTUAL,
+                        titulo:                   item.nome,
+                        usuario_id:               usuarioAtualUid,
                     });
-                    totalItensAtual++;
+                }
+
+                if (itensParaInserir.length > 0) {
+                    const { error: erroInserir } = await supabase.from("presentes").insert(itensParaInserir);
+                    if (erroInserir) throw erroInserir;
+                    totalItensAtual += itensParaInserir.length;
                 }
 
                 mostrarToast(`${itensParaAdicionar.length} item(ns) adicionado(s)!`, 'sucesso', '✅');
@@ -2110,7 +2123,9 @@
             }
         });
 
-        escutarListasProntas();
+        // (chamada movida pra dentro de iniciarSessaoUsuario — a leitura de
+        // listas_prontas agora exige usuário autenticado via RLS, diferente
+        // da regra "allow read: if true" que o Firestore tinha aqui)
 
         // ================================================================
         // ADICIONAR ITEM
