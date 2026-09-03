@@ -962,18 +962,15 @@
             if (!track || !dotsContainer) return;
 
             try {
-                const snapshot = await getDocs(collection(db, "temas"));
+                const { data: temas, error } = await supabase.from("temas").select("*").order("ordem");
+                if (error) throw error;
                 track.innerHTML = '';
                 dotsContainer.innerHTML = '';
 
-                if (snapshot.empty) {
+                if (!temas || temas.length === 0) {
                     track.innerHTML = '<div class="carousel-loading">Nenhum tema cadastrado.</div>';
                     return;
                 }
-
-                const temas = [];
-                snapshot.forEach(docSnap => temas.push(docSnap.data()));
-                temas.sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99));
 
                 temas.forEach((tema, i) => {
                     const slide = document.createElement('div');
