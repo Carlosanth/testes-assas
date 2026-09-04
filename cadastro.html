@@ -2923,12 +2923,15 @@
         async function podeCompartilhar() {
             if (!usuarioAtualUid) { mostrarToast('Faça login primeiro.', 'erro', '🔒'); return false; }
 
-            const perfilSnap = await getDoc(doc(db, "perfis", usuarioAtualUid));
-            const perfil = perfilSnap.data() || {};
+            const { data: perfil } = await supabase
+                .from("perfis")
+                .select("subconta_asaas_status")
+                .eq("id", usuarioAtualUid)
+                .maybeSingle();
 
-            if (perfil.subconta_asaas_status === "criada") return true;
+            if (perfil?.subconta_asaas_status === "criada") return true;
 
-            if (perfil.subconta_asaas_status === "pendente") {
+            if (perfil?.subconta_asaas_status === "pendente") {
                 mostrarToast('Seus dados de recebimento ainda estão em verificação. Tente novamente em instantes.', 'aviso', '⏳');
                 return false;
             }
@@ -3048,37 +3051,45 @@
         // ================================================================
         async function carregarValorMinimoSaque() {
             try {
-                const snap = await getDoc(doc(db, "admin_config", "global"));
-                if (snap.exists() && snap.data().valor_minimo_saque_centavos != null) {
-                    valorMinimoSaqueCentavos = parseInt(snap.data().valor_minimo_saque_centavos);
+                const { data, error } = await supabase.from("admin_config").select("valor").eq("chave", "saques").maybeSingle();
+                if (error) throw error;
+                if (data?.valor?.valor_minimo_centavos != null) {
+                    valorMinimoSaqueCentavos = parseInt(data.valor.valor_minimo_centavos);
                 }
             } catch(e) { console.error("Erro ao carregar valor mínimo de saque:", e); }
         }
 
-        // CPF cadastrado no onboarding (perfis/{uid}) — usado para confirmar
-        // que quem está solicitando o saque é o dono real da conta.
+        // CPF cadastrado no onboarding (perfis) — usado pra mostrar/confirmar
+        // a chave Pix que vai receber o saque (é o próprio CPF).
         async function carregarCpfDoPerfil() {
             if (!usuarioAtualUid) return;
             try {
-                const snap = await getDoc(doc(db, "perfis", usuarioAtualUid));
-                if (snap.exists() && snap.data().cpf) {
-                    cpfPerfilUsuario = String(snap.data().cpf).trim();
-                }
+                const { data, error } = await supabase.from("perfis").select("cpf").eq("id", usuarioAtualUid).maybeSingle();
+                if (error) throw error;
+                if (data?.cpf) cpfPerfilUsuario = String(data.cpf).trim();
             } catch(e) { console.error("Erro ao carregar CPF do perfil:", e); }
         }
 
         // ================================================================
         // ESCUTAR SAQUES DO USUÁRIO (para descontar do saldo quando pagos)
         // ================================================================
+        async function buscarMeusSaques() {
+            const { data, error } = await supabase.from("saques").select("*").eq("usuario_id", usuarioAtualUid).order("criado_em", { ascending: false });
+            if (error) { console.error("Erro ao buscar saques:", error); return; }
+            meusSaques = data || [];
+            // Recalcula tudo que depende de saques (saldo + linha "já sacado")
+            atualizarResumo();
+            atualizarSaldo();
+        }
+
         function escutarMeusSaques() {
             if (!usuarioAtualUid) return;
-            const q = query(collection(db, "saques"), where("usuario_id", "==", usuarioAtualUid));
-            unsubscribeSaques = onSnapshot(q, (snapshot) => {
-                meusSaques = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                // Recalcula tudo que depende de saques (saldo + linha "já sacado")
-                atualizarResumo();
-                atualizarSaldo();
-            });
+            buscarMeusSaques();
+            const canal = supabase
+                .channel(`saques-${usuarioAtualUid}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'saques', filter: `usuario_id=eq.${usuarioAtualUid}` }, buscarMeusSaques)
+                .subscribe();
+            unsubscribeSaques = () => supabase.removeChannel(canal);
         }
 
         // Abrir modal de saque
@@ -3140,27 +3151,29 @@
             btn.disabled = true;
 
             try {
-                const saqueId = `${usuarioAtualUid}-${Date.now()}`;
-                const { totalOriginalCentavos } = calcularSaldo();
-                await setDoc(doc(db, "saques", saqueId), {
-                    usuario_id:       usuarioAtualUid,
-                    nome,
-                    cpf,
-                    whatsapp,
-                    total_centavos:   totalOriginalCentavos.toString(),
-                    lucro_centavos:   lucroAdmin.toString(),
-                    repasse_centavos: repasse.toString(),
-                    status:           'pendente',
-                    data_solicitacao: new Date()
+                const { data: sessaoAtual } = await supabase.auth.getSession();
+                const resp = await fetch(edgeFunctions.solicitarSaque, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
+                    },
+                    // Manda o valor que a TELA calculou; a Edge Function ainda
+                    // revalida contra o saldo real da subconta no Asaas antes
+                    // de transferir — nunca confia só nesse número.
+                    body: JSON.stringify({ valor_centavos: repasse }),
                 });
+                const resultado = await resp.json();
+                if (!resp.ok) throw new Error(resultado.erro || 'Não foi possível concluir o saque agora.');
+
                 document.getElementById('modalSaque').classList.remove('ativo');
                 document.getElementById('saqueNome').value    = '';
                 document.getElementById('saqueCpf').value     = '';
                 document.getElementById('saqueWhatsapp').value = '';
-                mostrarToast('Saque solicitado! Repasse em até 24h. ✅', 'sucesso', '💸');
+                mostrarToast('Saque solicitado! O valor cai via Pix na sua chave (CPF). ✅', 'sucesso', '💸');
             } catch(e) {
                 console.error(e);
-                mostrarToast('Erro ao solicitar saque. Tente novamente.', 'erro', '❌');
+                mostrarToast(e.message || 'Erro ao solicitar saque. Tente novamente.', 'erro', '❌');
             } finally {
                 btn.textContent = 'Solicitar';
                 btn.disabled = false;
