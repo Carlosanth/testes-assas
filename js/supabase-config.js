@@ -49,6 +49,8 @@ export const edgeFunctions = {
     finalizarCompra: `${supabaseUrl}/functions/v1/finalizarCompra`,
     confirmarPagamento: `${supabaseUrl}/functions/v1/confirmarPagamento`,
     criarSubconta: `${supabaseUrl}/functions/v1/criarSubconta`,
+    solicitarSaque: `${supabaseUrl}/functions/v1/solicitarSaque`,
+    uploadImagem: `${supabaseUrl}/functions/v1/uploadImagem`,
 };
 
 // ── Helper usado em toda página protegida ───────────────────────────
