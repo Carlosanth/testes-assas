@@ -1661,14 +1661,15 @@
                     reader.readAsDataURL(arquivoOuBlob);
                 });
 
-                const response = await fetch(
-                    "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/uploadImagem",
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ imagemBase64: base64 })
-                    }
-                );
+                const { data: sessaoAtual } = await supabase.auth.getSession();
+                const response = await fetch(edgeFunctions.uploadImagem, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
+                    },
+                    body: JSON.stringify({ imagemBase64: base64 })
+                });
                 const data = await response.json();
                 if (data.url) return data.url;
                 else throw new Error("Sem URL");
@@ -3557,19 +3558,18 @@
         let unsubscribeAvisosGlobais = null;
 
         function escutarAvisosGlobais() {
-            if (unsubscribeAvisosGlobais) unsubscribeAvisosGlobais();
-            const q = query(
-                collection(db, "avisos_globais"),
-                orderBy("criado_em", "desc")
-            );
-            unsubscribeAvisosGlobais = onSnapshot(q, (snapshot) => {
+            async function carregarAvisos() {
+                const { data: avisos, error } = await supabase
+                    .from("avisos_globais")
+                    .select("*")
+                    .order("criado_em", { ascending: false });
+                if (error) { console.error("Erro avisos globais:", error); return; }
+
                 // Remove avisos anteriores do DOM (não toca nos itens de presente)
                 notifLista.querySelectorAll('.aviso-global').forEach(el => el.remove());
-                if (snapshot.empty) return;
+                if (!avisos || avisos.length === 0) return;
 
                 const icones = { taxa:'💸', instabilidade:'⚠️', comprovante:'📄', info:'📢' };
-                const avisos = [];
-                snapshot.forEach(d => avisos.push({ id: d.id, ...d.data() }));
 
                 // Insere do mais antigo ao mais recente com insertBefore
                 // para que o primeiro (mais recente) fique no topo
@@ -3577,7 +3577,7 @@
                     const icone = icones[aviso.tipo] || '📢';
                     let dataFmt = '';
                     if (aviso.criado_em) {
-                        const d = aviso.criado_em.toDate ? aviso.criado_em.toDate() : new Date(aviso.criado_em);
+                        const d = new Date(aviso.criado_em);
                         dataFmt = d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
                     }
                     const el = document.createElement('div');
@@ -3600,7 +3600,13 @@
                     }
                     notifLista.insertBefore(el, notifLista.firstChild);
                 });
-            }, err => console.error("Erro avisos globais:", err));
+            }
+
+            carregarAvisos();
+            supabase
+                .channel('avisos-globais')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos_globais' }, carregarAvisos)
+                .subscribe();
         }
 
         // Exportar lista como CSV
