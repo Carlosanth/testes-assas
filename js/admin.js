@@ -66,7 +66,6 @@
 
     async function fazerUploadImagemImgBB(arquivoOuBlob) {
         try {
-            // Converte o Blob/arquivo pra base64 (sem o prefixo "data:image/...;base64,")
             const base64 = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result.split(",")[1]);
@@ -74,16 +73,15 @@
                 reader.readAsDataURL(arquivoOuBlob);
             });
 
-            // ✅ Upload via Cloud Function (mesma usada no cadastro.html) — nunca
-            // chama o ImgBB direto do navegador, pra não expor chave de API.
-            const response = await fetch(
-                "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/uploadImagem",
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ imagemBase64: base64 })
-                }
-            );
+            const { data: sessaoAtual } = await supabase.auth.getSession();
+            const response = await fetch(edgeFunctions.uploadImagem, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
+                },
+                body: JSON.stringify({ imagemBase64: base64 })
+            });
             const data = await response.json();
             if (data.url) return data.url;
             throw new Error(data.erro || "Falha no upload da imagem");
@@ -110,10 +108,16 @@
             if (categoriasGlobaisCache.includes(valorAtual)) sel.value = valorAtual;
         });
     }
-    onSnapshot(collection(db, "categorias"), snap => {
-        categoriasGlobaisCache = snap.docs.map(d => d.data().nome || d.id).filter(Boolean);
+    async function carregarCategoriasGlobais() {
+        const { data, error } = await supabase.from("categorias").select("nome").order("ordem");
+        if (error) { console.error("Erro ao carregar categorias:", error); return; }
+        categoriasGlobaisCache = (data || []).map(c => c.nome).filter(Boolean);
         popularSelectsCategoria();
-    }, err => console.error("Erro ao carregar categorias:", err));
+    }
+    carregarCategoriasGlobais();
+    supabase.channel('categorias-admin')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, carregarCategoriasGlobais)
+        .subscribe();
 
     // ================================================================
     // BANCO DE IMAGENS — fotos profissionais cadastradas só pelo admin,
@@ -140,11 +144,17 @@
     let editandoImagemBancoId = null;
     let urlImagemBancoSelecionada = '';
 
-    function escutarBancoImagens() {
-        onSnapshot(collection(db, "banco_imagens"), snap => {
-            bancoImagensCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    async function escutarBancoImagens() {
+        async function carregar() {
+            const { data, error } = await supabase.from("banco_imagens").select("*").order("criado_em", { ascending: false });
+            if (error) { console.error("Erro ao carregar banco de imagens:", error); return; }
+            bancoImagensCache = data || [];
             renderizarGridBancoImagens(bancoImagensCache);
-        }, err => console.error("Erro ao carregar banco de imagens:", err));
+        }
+        await carregar();
+        supabase.channel('banco-imagens-admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'banco_imagens' }, carregar)
+            .subscribe();
     }
 
     function renderizarGridBancoImagens(lista) {
@@ -153,7 +163,7 @@
         if (!lista.length) { grid.innerHTML = '<div class="lp-vazio">Nenhuma imagem cadastrada ainda.</div>'; return; }
         grid.innerHTML = lista.map(item => `
             <div class="lp-card-item" data-item-id="${item.id}">
-                <img src="${item.imagemUrl}" alt="${escapeHTML(item.nome || '')}" loading="lazy">
+                <img src="${item.imagem_url}" alt="${escapeHTML(item.nome || '')}" loading="lazy">
                 <div class="lp-card-item-corpo">
                     <div class="lp-card-item-nome">${escapeHTML(item.nome || '')}</div>
                     <div style="font-size:10px; color:var(--text3); margin:2px 0 8px;">${(item.tags || []).map(t => '#' + escapeHTML(t)).join(' ')}</div>
@@ -193,7 +203,7 @@
         grid.innerHTML = lista.map(item => `
             <div class="lp-card-item selecionavel${idsSelecionadosBancoLP.has(item.id) ? ' selecionado' : ''}" data-item-id="${item.id}">
                 ${idsSelecionadosBancoLP.has(item.id) ? '<div class="lp-card-item-check">✓</div>' : ''}
-                <img src="${item.imagemUrl}" alt="${escapeHTML(item.nome || '')}" loading="lazy">
+                <img src="${item.imagem_url}" alt="${escapeHTML(item.nome || '')}" loading="lazy">
                 <div class="lp-card-item-corpo">
                     <div class="lp-card-item-nome">${escapeHTML(item.nome || '')}</div>
                 </div>
@@ -240,13 +250,13 @@
         const container = document.getElementById('listaRevisarSelecaoBancoLP');
         const itens = bancoImagensCache.filter(i => idsSelecionadosBancoLP.has(i.id));
         container.innerHTML = itens.map(item => {
-            const precoVinculado = bancoPrecosCache.find(p => p.id === item.id);
+            const precoVinculado = bancoPrecosCache.find(p => p.banco_imagem_id === item.id);
             const valorInicial = precoVinculado
                 ? (precoVinculado.preco_centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                 : '';
             return `
             <div class="lp-card-item" style="display:flex; flex-direction:row; align-items:center; gap:12px; padding:10px;" data-id="${item.id}">
-                <img src="${item.imagemUrl}" alt="${escapeHTML(item.nome || '')}" style="width:56px; height:56px; border-radius:8px; object-fit:cover; flex-shrink:0;">
+                <img src="${item.imagem_url}" alt="${escapeHTML(item.nome || '')}" style="width:56px; height:56px; border-radius:8px; object-fit:cover; flex-shrink:0;">
                 <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
                     <input type="text" class="campo-form-admin input-revisar-nome" value="${escapeHTML(item.nome || '').replace(/"/g, '&quot;')}" placeholder="Nome do item" style="margin:0;">
                     <input type="tel" class="campo-form-admin input-revisar-valor" value="${valorInicial}" placeholder="R$ 0,00 (opcional)" style="margin:0;">
@@ -302,12 +312,13 @@
                 }
 
                 const dados = {
+                    lista_id: categoriaLPAberta,
                     nome,
-                    preco_centavos: Math.round(precoNumerico * 100).toString(),
-                    imagem: itemBanco.imagemUrl,
+                    preco_centavos: Math.round(precoNumerico * 100),
+                    imagem: itemBanco.imagem_url,
                 };
-                const itemId = nome.replace(/[\/#\$\.\[\]]/g, "").trim().toLowerCase().replace(/\s+/g, '-') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-                await setDoc(doc(db, "listas_prontas", categoriaLPAberta, "itens", itemId), dados);
+                const { error } = await supabase.from("listas_prontas_itens").insert(dados);
+                if (error) throw error;
             }
             toast(`✅ ${linhas.length} item(ns) adicionado(s) à lista!`);
             document.getElementById('modalRevisarSelecaoBancoLP').classList.remove('ativo');
@@ -339,13 +350,13 @@
             inputNome.value = item?.nome || '';
             inputSinonimos.value = item?.sinonimos || '';
             if (inputCategoria) inputCategoria.value = item?.categoria || '';
-            urlImagemBancoSelecionada = item?.imagemUrl || '';
+            urlImagemBancoSelecionada = item?.imagem_url || '';
             if (urlImagemBancoSelecionada) { preview.src = urlImagemBancoSelecionada; preview.style.display = 'block'; }
             else { preview.style.display = 'none'; }
             tagsPreview.textContent = (item?.tags || []).map(t => '#' + t).join(' ');
             // ✅ NOVO: se já existe um valor de referência vinculado a essa
             // imagem (mesmo id, na coleção banco_precos), pré-preenche.
-            const precoVinculado = bancoPrecosCache.find(p => p.id === id);
+            const precoVinculado = bancoPrecosCache.find(p => p.banco_imagem_id === id);
             if (inputValor) {
                 inputValor.value = precoVinculado
                     ? (precoVinculado.preco_centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -417,35 +428,36 @@
                 sinonimos,
                 categoria,
                 tags,
-                imagemUrl: urlImagemBancoSelecionada,
-                atualizado_em: serverTimestamp(),
+                imagem_url: urlImagemBancoSelecionada,
+                atualizado_em: new Date().toISOString(),
             };
             let idImagem = editandoImagemBancoId;
             if (editandoImagemBancoId) {
-                await setDoc(doc(db, "banco_imagens", editandoImagemBancoId), dados, { merge: true });
+                const { error } = await supabase.from("banco_imagens").update(dados).eq("id", editandoImagemBancoId);
+                if (error) throw error;
                 toast('✅ Imagem atualizada!');
             } else {
-                dados.criado_em = serverTimestamp();
-                const ref = await addDoc(collection(db, "banco_imagens"), dados);
-                idImagem = ref.id;
+                const { data: nova, error } = await supabase.from("banco_imagens").insert(dados).select("id").single();
+                if (error) throw error;
+                idImagem = nova.id;
                 toast('✅ Imagem adicionada ao banco!');
             }
-            // ✅ NOVO: se um valor foi informado, salva/atualiza o preço de
-            // referência vinculado (mesmo id da imagem, na coleção
-            // banco_precos) — assim ele já entra na média sugerida no
-            // cadastro do cliente. Se o campo ficar em branco, não toca
-            // num preço já existente (evita apagar dado sem querer).
+            // Se um valor foi informado, salva/atualiza o preço de referência
+            // vinculado a essa imagem (banco_imagem_id) — assim ele já entra
+            // na média sugerida no cadastro do cliente. Se o campo ficar em
+            // branco, não toca num preço já existente (evita apagar sem querer).
             if (valorTexto && idImagem) {
-                await setDoc(doc(db, "banco_precos", idImagem), {
+                const { error: erroPreco } = await supabase.from("banco_precos").upsert({
+                    banco_imagem_id: idImagem,
                     nome,
                     categoria,
                     tags,
                     preco_centavos: Math.round(valorNumerico * 100),
-                    criado_em: serverTimestamp(),
-                }, { merge: true });
+                }, { onConflict: 'banco_imagem_id' });
+                if (erroPreco) throw erroPreco;
             }
             document.getElementById('modalImagemBanco').classList.remove('ativo');
-            // ✅ Atualiza a lista de "imagens de clientes" — a que acabou de
+            // Atualiza a lista de "imagens de clientes" — a que acabou de
             // ser adicionada ao banco já some de lá na hora.
             escutarImagensClientes();
         } catch (e) {
@@ -460,7 +472,8 @@
     async function excluirImagemBanco(id) {
         if (!confirm('Excluir esta imagem do banco? Isso não afeta produtos que já usam essa imagem, só remove a sugestão futura.')) return;
         try {
-            await deleteDoc(doc(db, "banco_imagens", id));
+            const { error } = await supabase.from("banco_imagens").delete().eq("id", id);
+            if (error) throw error;
             toast('🗑 Imagem removida do banco.');
         } catch (e) {
             console.error(e);
@@ -476,20 +489,23 @@
         const el = document.getElementById('listaBuscasSemResultado');
         if (!el) return;
         try {
-            const q = query(collection(db, "buscas_banco_imagens_sem_resultado"), orderBy("criado_em", "desc"), limit(200));
-            const snap = await getDocs(q);
-            if (snap.empty) { el.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:16px;">Nenhuma busca sem resultado registrada ainda.</p>'; return; }
+            const { data: buscas, error } = await supabase
+                .from("buscas_banco_imagens_sem_resultado")
+                .select("*")
+                .order("criado_em", { ascending: false })
+                .limit(200);
+            if (error) throw error;
+            if (!buscas || buscas.length === 0) { el.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:16px;">Nenhuma busca sem resultado registrada ainda.</p>'; return; }
 
             // Agrupa por termo (várias pessoas podem buscar a mesma coisa) e
             // conta quantas vezes apareceu, pra mostrar o mais pedido primeiro.
             const porTermo = {};
-            snap.forEach(d => {
-                const dado = d.data();
+            buscas.forEach(dado => {
                 const chave = dado.termo_original || (dado.termos || []).join(' ');
                 if (!chave) return;
                 if (!porTermo[chave]) porTermo[chave] = { termo: chave, qtd: 0, ids: [] };
                 porTermo[chave].qtd++;
-                porTermo[chave].ids.push(d.id);
+                porTermo[chave].ids.push(dado.id);
             });
             const ordenado = Object.values(porTermo).sort((a, b) => b.qtd - a.qtd).slice(0, 20);
 
@@ -507,9 +523,8 @@
                 btn.addEventListener('click', async () => {
                     const ids = btn.dataset.ids.split(',');
                     try {
-                        const lote = writeBatch(db);
-                        ids.forEach(id => lote.delete(doc(db, "buscas_banco_imagens_sem_resultado", id)));
-                        await lote.commit();
+                        const { error: erroDelete } = await supabase.from("buscas_banco_imagens_sem_resultado").delete().in("id", ids);
+                        if (erroDelete) throw erroDelete;
                         escutarBuscasSemResultado(); // recarrega a lista
                     } catch (e) {
                         console.error(e);
@@ -534,23 +549,20 @@
         try {
             // Não dá pra saber de antemão quantos produtos existem, então
             // pega um lote razoável dos mais recentes e filtra no navegador.
-            const [snapProdutos, snapIgnoradas] = await Promise.all([
-                getDocs(query(collection(db, "presentes"), orderBy("titulo"), limit(300))),
-                getDocs(collection(db, "imagens_clientes_ignoradas")),
+            const [{ data: produtos }, { data: ignoradas }] = await Promise.all([
+                supabase.from("presentes").select("titulo, imagem_url").order("titulo").limit(300),
+                supabase.from("imagens_clientes_ignoradas").select("*"),
             ]);
 
-            const urlsJaNoBanco = new Set(bancoImagensCache.map(i => i.imagemUrl));
-            // Guarda também o id do documento de "ignorada" pra poder desfazer.
-            const urlsIgnoradas = new Map();
-            snapIgnoradas.forEach(d => urlsIgnoradas.set(d.data().url, d.id));
+            const urlsJaNoBanco = new Set(bancoImagensCache.map(i => i.imagem_url));
+            const urlsIgnoradas = new Set((ignoradas || []).map(i => i.url));
 
             const vistos = new Map(); // dedupe por URL, guarda o primeiro nome associado
 
-            snapProdutos.forEach(d => {
-                const p = d.data();
-                const url = p.imagem;
+            (produtos || []).forEach(p => {
+                const url = p.imagem_url;
                 if (!url || url === URL_PLACEHOLDER_PADRAO) return; // sem imagem própria
-                if (urlsJaNoBanco.has(url)) return; // ✅ já foi vinculada ao banco — some da lista
+                if (urlsJaNoBanco.has(url)) return; // já foi vinculada ao banco — some da lista
                 if (urlsIgnoradas.has(url)) return; // você já marcou como "não aproveitar"
                 if (!vistos.has(url)) vistos.set(url, p.titulo || '');
             });
@@ -591,10 +603,8 @@
                     // NUNCA mexe no ImgBB nem no produto do cliente, que
                     // continua com a imagem dele normalmente.
                     try {
-                        await addDoc(collection(db, "imagens_clientes_ignoradas"), {
-                            url: btn.dataset.url,
-                            ignorado_em: serverTimestamp(),
-                        });
+                        const { error } = await supabase.from("imagens_clientes_ignoradas").insert({ url: btn.dataset.url });
+                        if (error) throw error;
                         const card = grid.querySelector(`[data-url-cliente="${CSS.escape(btn.dataset.url)}"]`);
                         card?.remove();
                         if (!grid.querySelector('.lp-card-item')) {
@@ -627,18 +637,17 @@
         const grid = document.getElementById('precosClientesGrid');
         if (!grid) return;
         try {
-            const [snapProdutos, snapIgnorados] = await Promise.all([
-                getDocs(query(collection(db, "presentes"), orderBy("titulo"), limit(300))),
-                getDocs(collection(db, "precos_clientes_ignorados")),
+            const [{ data: produtos }, { data: ignorados }] = await Promise.all([
+                supabase.from("presentes").select("titulo, preco_original_centavos").order("titulo").limit(300),
+                supabase.from("precos_clientes_ignorados").select("assinatura"),
             ]);
 
             const assinaturasJaNoBanco = new Set(bancoPrecosCache.map(i => assinaturaTags(i.tags || [])));
-            const assinaturasIgnoradas = new Set(snapIgnorados.docs.map(d => d.data().assinatura));
+            const assinaturasIgnoradas = new Set((ignorados || []).map(i => i.assinatura));
 
             const vistos = new Map(); // assinatura -> { nome, precoCentavos }
 
-            snapProdutos.forEach(d => {
-                const p = d.data();
+            (produtos || []).forEach(p => {
                 const nome = (p.titulo || '').trim();
                 const precoCentavos = parseInt(p.preco_original_centavos, 10);
                 if (!nome || !precoCentavos || precoCentavos <= 0) return;
@@ -680,13 +689,13 @@
             grid.querySelectorAll('.btn-aprovar-preco-cliente').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     try {
-                        await addDoc(collection(db, "banco_precos"), {
+                        const { error } = await supabase.from("banco_precos").insert({
                             nome: btn.dataset.nome,
                             categoria: '',
                             tags: normalizarTags(btn.dataset.nome),
                             preco_centavos: parseInt(btn.dataset.preco, 10) || 0,
-                            criado_em: serverTimestamp(),
                         });
+                        if (error) throw error;
                         toast('✅ Preço adicionado ao banco!');
                         removerCard(btn.dataset.assinatura);
                     } catch (e) {
@@ -699,10 +708,10 @@
             grid.querySelectorAll('.btn-ignorar-preco-cliente').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     try {
-                        await addDoc(collection(db, "precos_clientes_ignorados"), {
+                        const { error } = await supabase.from("precos_clientes_ignorados").insert({
                             assinatura: btn.dataset.assinatura,
-                            ignorado_em: serverTimestamp(),
                         });
+                        if (error) throw error;
                         removerCard(btn.dataset.assinatura);
                     } catch (e) {
                         console.error(e);
@@ -742,13 +751,13 @@
         if (isNaN(valorNumerico) || valorNumerico <= 0) { toast('⚠️ Valor inválido.'); return; }
 
         try {
-            await addDoc(collection(db, "banco_precos"), {
+            const { error } = await supabase.from("banco_precos").insert({
                 nome,
                 categoria,
                 tags: normalizarTags(nome),
                 preco_centavos: Math.round(valorNumerico * 100),
-                criado_em: serverTimestamp(),
             });
+            if (error) throw error;
             toast('✅ Preço de referência adicionado!');
             inputNome.value = '';
             inputValor.value = '';
@@ -770,16 +779,22 @@
     const VALIDADE_PRECO_DIAS = 90;
 
     let bancoPrecosCache = [];
-    function escutarBancoPrecos() {
-        onSnapshot(collection(db, "banco_precos"), snap => {
-            bancoPrecosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    async function escutarBancoPrecos() {
+        async function carregar() {
+            const { data, error } = await supabase.from("banco_precos").select("*");
+            if (error) { console.error("Erro ao carregar banco de preços:", error); return; }
+            bancoPrecosCache = data || [];
             renderizarTabelaBancoPrecos(bancoPrecosCache);
-        }, err => console.error("Erro ao carregar banco de preços:", err));
+        }
+        await carregar();
+        supabase.channel('banco-precos-admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'banco_precos' }, carregar)
+            .subscribe();
     }
 
-    function diasDesde(timestampFirestore) {
-        if (!timestampFirestore?.toMillis) return null;
-        return Math.floor((Date.now() - timestampFirestore.toMillis()) / (1000 * 60 * 60 * 24));
+    function diasDesde(dataISO) {
+        if (!dataISO) return null;
+        return Math.floor((Date.now() - new Date(dataISO).getTime()) / (1000 * 60 * 60 * 24));
     }
 
     function renderizarTabelaBancoPrecos(lista) {
@@ -828,7 +843,8 @@
             btn.addEventListener('click', async () => {
                 if (!confirm(`Excluir o preço de "${btn.dataset.nome}" do banco? Isso não afeta itens que já usam esse valor, só some da média futura.`)) return;
                 try {
-                    await deleteDoc(doc(db, "banco_precos", btn.dataset.id));
+                    const { error } = await supabase.from("banco_precos").delete().eq("id", btn.dataset.id);
+                    if (error) throw error;
                     toast('✅ Preço excluído do banco.');
                 } catch (e) {
                     console.error(e);
@@ -838,9 +854,9 @@
         });
     }
 
-    // ✅ NOVO: apaga só as entradas marcadas com checkbox — não afeta o
-    // preço já salvo em cada item do cliente, só zera a sugestão futura
-    // daquelas entradas específicas.
+    // Apaga só as entradas marcadas com checkbox — não afeta o preço já
+    // salvo em cada item do cliente, só zera a sugestão futura daquelas
+    // entradas específicas.
     document.getElementById('btnApagarSelecionadosBancoPrecos')?.addEventListener('click', async () => {
         const el = document.getElementById('bancoPrecosTabela');
         const marcados = Array.from(el?.querySelectorAll('.chk-preco-banco:checked') || []);
@@ -850,11 +866,8 @@
 
         try {
             const ids = marcados.map(c => c.dataset.id);
-            for (let i = 0; i < ids.length; i += 450) {
-                const lote = writeBatch(db);
-                ids.slice(i, i + 450).forEach(id => lote.delete(doc(db, "banco_precos", id)));
-                await lote.commit();
-            }
+            const { error } = await supabase.from("banco_precos").delete().in("id", ids);
+            if (error) throw error;
             toast(`✅ ${ids.length} preço(s) excluído(s).`);
         } catch (e) {
             console.error(e);
@@ -920,13 +933,15 @@
                         nome: linha.nome,
                         tags: normalizarTags(linha.nome),
                         preco_centavos: Math.round(linha.valor * 100),
-                        criado_em: serverTimestamp(), // renova a validade a cada atualização
+                        criado_em: new Date().toISOString(), // renova a validade a cada atualização
                     };
                     if (idExistente) {
-                        await setDoc(doc(db, "banco_precos", idExistente), dadosPreco, { merge: true });
+                        const { error } = await supabase.from("banco_precos").update(dadosPreco).eq("id", idExistente);
+                        if (error) throw error;
                         atualizados++;
                     } else {
-                        await addDoc(collection(db, "banco_precos"), dadosPreco);
+                        const { error } = await supabase.from("banco_precos").insert(dadosPreco);
+                        if (error) throw error;
                         criados++;
                     }
                 }
@@ -951,12 +966,15 @@
         const el = document.getElementById('sugestoesPrecoGrid');
         if (!el) return;
         try {
-            const q = query(collection(db, "sugestoes_precos_clientes"), orderBy("criado_em", "desc"), limit(100));
-            const snap = await getDocs(q);
-            if (snap.empty) { el.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:16px;">Nenhuma sugestão de preço pendente.</p>'; return; }
+            const { data: sugestoes, error } = await supabase
+                .from("sugestoes_precos_clientes")
+                .select("*")
+                .order("criado_em", { ascending: false })
+                .limit(100);
+            if (error) throw error;
+            if (!sugestoes || sugestoes.length === 0) { el.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:16px;">Nenhuma sugestão de preço pendente.</p>'; return; }
 
-            el.innerHTML = snap.docs.map(d => {
-                const dado = d.data();
+            el.innerHTML = sugestoes.map(dado => {
                 const valorFmt = ((dado.preco_centavos || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                 const opcoesCategoria = categoriasGlobaisCache.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('');
                 return `
@@ -970,8 +988,8 @@
                                 <option value="">Sem categoria</option>
                                 ${opcoesCategoria}
                             </select>
-                            <button class="btn-tabela btn-marcar-pago btn-aprovar-preco" data-id="${d.id}" data-nome="${escapeHTML(dado.nome || '').replace(/"/g, '&quot;')}" data-preco="${dado.preco_centavos || 0}" style="font-size:11px;">✅ Aprovar</button>
-                            <button class="btn-tabela btn-excluir-cliente btn-ignorar-preco" data-id="${d.id}" style="font-size:11px;">🚫 Ignorar</button>
+                            <button class="btn-tabela btn-marcar-pago btn-aprovar-preco" data-id="${dado.id}" data-nome="${escapeHTML(dado.nome || '').replace(/"/g, '&quot;')}" data-preco="${dado.preco_centavos || 0}" style="font-size:11px;">✅ Aprovar</button>
+                            <button class="btn-tabela btn-excluir-cliente btn-ignorar-preco" data-id="${dado.id}" style="font-size:11px;">🚫 Ignorar</button>
                         </div>
                     </div>
                 `;
@@ -984,14 +1002,15 @@
                         // Mesma normalização de tags usada nas imagens — assim a
                         // busca por "todas as palavras batem" funciona igual dos
                         // dois lados (imagem e preço).
-                        await addDoc(collection(db, "banco_precos"), {
+                        const { error: erroInsert } = await supabase.from("banco_precos").insert({
                             nome: btn.dataset.nome,
                             categoria: selectCategoria?.value || '',
                             tags: normalizarTags(btn.dataset.nome),
                             preco_centavos: parseInt(btn.dataset.preco, 10) || 0,
-                            criado_em: serverTimestamp(),
                         });
-                        await deleteDoc(doc(db, "sugestoes_precos_clientes", btn.dataset.id));
+                        if (erroInsert) throw erroInsert;
+                        const { error: erroDelete } = await supabase.from("sugestoes_precos_clientes").delete().eq("id", btn.dataset.id);
+                        if (erroDelete) throw erroDelete;
                         toast('✅ Preço aprovado e adicionado ao banco!');
                         escutarSugestoesPreco();
                     } catch (e) {
@@ -1004,7 +1023,8 @@
             el.querySelectorAll('.btn-ignorar-preco').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     try {
-                        await deleteDoc(doc(db, "sugestoes_precos_clientes", btn.dataset.id));
+                        const { error } = await supabase.from("sugestoes_precos_clientes").delete().eq("id", btn.dataset.id);
+                        if (error) throw error;
                         escutarSugestoesPreco();
                     } catch (e) {
                         console.error(e);
@@ -1161,9 +1181,10 @@
     // ================================================================
     async function carregarTaxaGlobal() {
         try {
-            const snap = await getDoc(doc(db, "admin_config", "global"));
-            if (snap.exists() && snap.data().taxa_percentual) {
-                taxaGlobal = parseFloat(snap.data().taxa_percentual);
+            const { data, error } = await supabase.from("admin_config").select("valor").eq("chave", "taxa").maybeSingle();
+            if (error) throw error;
+            if (data?.valor?.percentual != null) {
+                taxaGlobal = parseFloat(data.valor.percentual);
                 document.getElementById('inputTaxaGlobal').value = taxaGlobal;
                 document.getElementById('taxaAtualLabel').textContent = taxaGlobal.toFixed(1).replace('.', ',');
             }
@@ -1174,7 +1195,8 @@
         const val = parseFloat(document.getElementById('inputTaxaGlobal').value);
         if (isNaN(val) || val < 0 || val > 100) { toast('⚠️ Taxa inválida.'); return; }
         try {
-            await setDoc(doc(db, "admin_config", "global"), { taxa_percentual: val }, { merge: true });
+            const { error } = await supabase.from("admin_config").upsert({ chave: "taxa", valor: { percentual: val } });
+            if (error) throw error;
             taxaGlobal = val;
             document.getElementById('taxaAtualLabel').textContent = val.toFixed(1).replace('.', ',');
             toast('✅ Taxa atualizada para ' + val.toFixed(1) + '%');
@@ -1195,26 +1217,28 @@
     let editandoItemLPId = null;
     let imagemItemLPSelecionada = '';    // url já enviada ao imgbb (edição/criação de item)
 
-    function escutarListasProntas() {
-        onSnapshot(collection(db, "listas_prontas"), (snap) => {
-            todasCategoriasLP = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    async function escutarListasProntas() {
+        async function carregar() {
+            const { data: cats, error: erroCat } = await supabase.from("listas_prontas").select("*").order("ordem");
+            if (erroCat) { console.error(erroCat); return; }
+            todasCategoriasLP = cats || [];
 
-            // Garante um listener de itens por categoria
-            todasCategoriasLP.forEach(cat => {
-                if (!unsubscribesItensLP[cat.id]) {
-                    unsubscribesItensLP[cat.id] = onSnapshot(
-                        collection(db, "listas_prontas", cat.id, "itens"),
-                        (itensSnap) => {
-                            itensPorCategoriaLP[cat.id] = itensSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                            renderizarGridCategoriasLP();
-                            if (categoriaLPAberta === cat.id) renderizarGridItensLP(cat.id);
-                        }
-                    );
-                }
+            const { data: itens, error: erroItens } = await supabase.from("listas_prontas_itens").select("*");
+            if (erroItens) { console.error(erroItens); return; }
+            itensPorCategoriaLP = {};
+            (itens || []).forEach(item => {
+                if (!itensPorCategoriaLP[item.lista_id]) itensPorCategoriaLP[item.lista_id] = [];
+                itensPorCategoriaLP[item.lista_id].push(item);
             });
 
             renderizarGridCategoriasLP();
-        });
+            if (categoriaLPAberta) renderizarGridItensLP(categoriaLPAberta);
+        }
+        await carregar();
+        supabase.channel('listas-prontas-admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'listas_prontas' }, carregar)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'listas_prontas_itens' }, carregar)
+            .subscribe();
     }
 
     function renderizarGridCategoriasLP() {
@@ -1349,8 +1373,10 @@
         btn.textContent = 'Salvando...';
 
         try {
-            const catId = editandoCategoriaLPId || nome.replace(/[\/#\$\.\[\]]/g, "").trim().toLowerCase().replace(/\s+/g, '-');
-            await setDoc(doc(db, "listas_prontas", catId), { nome, icone }, { merge: true });
+            const payload = { nome, icone };
+            if (editandoCategoriaLPId) payload.id = editandoCategoriaLPId;
+            const { error } = await supabase.from("listas_prontas").upsert(payload);
+            if (error) throw error;
             toast(editandoCategoriaLPId ? '✅ Categoria atualizada!' : '✅ Categoria criada!');
             document.getElementById('modalCategoriaLP').classList.remove('ativo');
         } catch (e) {
@@ -1368,10 +1394,10 @@
         if (!confirm(`Excluir a categoria "${cat?.nome}" e seus ${itens.length} item(ns)? Esta ação não pode ser desfeita.`)) return;
 
         try {
-            const batch = writeBatch(db);
-            itens.forEach(item => batch.delete(doc(db, "listas_prontas", catId, "itens", item.id)));
-            batch.delete(doc(db, "listas_prontas", catId));
-            await batch.commit();
+            // A constraint "on delete cascade" de listas_prontas_itens já
+            // apaga os itens junto — não precisa apagar um por um antes.
+            const { error } = await supabase.from("listas_prontas").delete().eq("id", catId);
+            if (error) throw error;
             if (categoriaLPAberta === catId) document.getElementById('btnVoltarCategoriasLP').click();
             toast('🗑️ Categoria excluída.');
         } catch (e) {
@@ -1451,15 +1477,17 @@
 
         try {
             const dados = {
+                lista_id: categoriaLPAberta,
                 nome,
-                preco_centavos: Math.round(precoNumerico * 100).toString(),
+                preco_centavos: Math.round(precoNumerico * 100),
                 imagem: imagemItemLPSelecionada || 'https://i.ibb.co/0jjSyNRG/logo.png'
             };
             if (editandoItemLPId) {
-                await setDoc(doc(db, "listas_prontas", categoriaLPAberta, "itens", editandoItemLPId), dados, { merge: true });
+                const { error } = await supabase.from("listas_prontas_itens").update(dados).eq("id", editandoItemLPId);
+                if (error) throw error;
             } else {
-                const itemId = nome.replace(/[\/#\$\.\[\]]/g, "").trim().toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-                await setDoc(doc(db, "listas_prontas", categoriaLPAberta, "itens", itemId), dados);
+                const { error } = await supabase.from("listas_prontas_itens").insert(dados);
+                if (error) throw error;
             }
             toast(editandoItemLPId ? '✅ Item atualizado!' : '✅ Item adicionado!');
             document.getElementById('modalItemLP').classList.remove('ativo');
@@ -1476,7 +1504,8 @@
         const item = (itensPorCategoriaLP[catId] || []).find(i => i.id === itemId);
         if (!confirm(`Excluir o item "${item?.nome}"?`)) return;
         try {
-            await deleteDoc(doc(db, "listas_prontas", catId, "itens", itemId));
+            const { error } = await supabase.from("listas_prontas_itens").delete().eq("id", itemId);
+            if (error) throw error;
             toast('🗑️ Item excluído.');
         } catch (e) {
             console.error(e);
@@ -1603,16 +1632,14 @@
         btn.textContent = 'Importando...';
 
         try {
-            const batch = writeBatch(db);
-            itensValidos.forEach(item => {
-                const itemId = item.nome.replace(/[\/#\$\.\[\]]/g, "").trim().toLowerCase().replace(/\s+/g, '-') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-                batch.set(doc(db, "listas_prontas", categoriaLPAberta, "itens", itemId), {
-                    nome: item.nome,
-                    preco_centavos: Math.round((item.valorNumerico || 0) * 100).toString(),
-                    imagem: item.imagem || 'https://i.ibb.co/0jjSyNRG/logo.png'
-                });
-            });
-            await batch.commit();
+            const linhas = itensValidos.map(item => ({
+                lista_id: categoriaLPAberta,
+                nome: item.nome,
+                preco_centavos: Math.round((item.valorNumerico || 0) * 100),
+                imagem: item.imagem || 'https://i.ibb.co/0jjSyNRG/logo.png'
+            }));
+            const { error } = await supabase.from("listas_prontas_itens").insert(linhas);
+            if (error) throw error;
 
             toast(`✅ ${itensValidos.length} item(ns) importado(s) para a categoria!`);
             document.getElementById('modalImportarExcelCategoriaLP').classList.remove('ativo');
@@ -1771,54 +1798,63 @@
         btn.textContent = 'Importando...';
 
         try {
-            // Garante que cada categoria usada existe na coleção "categorias"
+            // Garante que cada categoria usada existe na tabela global "categorias"
             // (mesmo padrão do dropdown de categorias do cadastro.html).
-            // Importante: a regra de "categorias" só libera CREATE (não update),
-            // então só gravamos se o documento ainda não existir.
             const categoriasUsadas = [...new Set(itensValidos.map(i => i.categoria || 'Sem Categoria'))];
+            const categoriaIdPorNome = {};
             for (const nomeCat of categoriasUsadas) {
-                const catLimpa = nomeCat.replace(/[\/#\$\.\[\]]/g, "").trim();
-                const catRef = doc(db, "categorias", catLimpa);
-                const catSnap = await getDoc(catRef);
-                if (!catSnap.exists()) {
-                    await setDoc(catRef, { nome: nomeCat });
+                const { data: catRow } = await supabase.from("categorias").select("id").eq("nome", nomeCat).maybeSingle();
+                if (catRow) {
+                    categoriaIdPorNome[nomeCat] = catRow.id;
+                } else {
+                    const { data: novaCat, error: erroCat } = await supabase.from("categorias").insert({ nome: nomeCat }).select("id").single();
+                    if (erroCat) throw erroCat;
+                    categoriaIdPorNome[nomeCat] = novaCat.id;
                 }
             }
 
-            // Taxa do cliente: usa a preferência já salva em "configuracoes/{uid}"
+            // Taxa do cliente: usa a preferência já salva em "configuracoes"
             // (mesmo padrão do toggle "Convidado paga / Eu pago" do cadastro.html);
             // se não houver configuração ainda, assume 'convidado'.
             const configCliente = todasConfiguracoes[clienteLPSelecionadoUid];
             const taxaQuemPagaCliente = configCliente?.taxa_quem_paga || 'convidado';
 
-            const batch = writeBatch(db);
-            itensValidos.forEach(item => {
+            // Itens já existentes desse cliente, pra atualizar em vez de duplicar
+            // quando a mesma categoria+nome já foi importada antes.
+            const { data: existentes } = await supabase
+                .from("presentes")
+                .select("id, categoria_id, titulo")
+                .eq("usuario_id", clienteLPSelecionadoUid);
+            const existentePorChave = new Map((existentes || []).map(p => [`${p.categoria_id}|${p.titulo}`, p.id]));
+
+            for (const item of itensValidos) {
                 const nomeCategoria = item.categoria || 'Sem Categoria';
-                const categoriaLimpaNome = nomeCategoria.replace(/[\/#\$\.\[\]]/g, "").trim();
+                const categoriaId = categoriaIdPorNome[nomeCategoria];
                 const precoOriginalCentavos = Math.round(item.valorNumerico * 100);
                 const fatorTaxa = taxaQuemPagaCliente === 'convidado' ? (1 + taxaGlobal / 100) : 1;
                 const precoCentavosWebhook = Math.round(precoOriginalCentavos * fatorTaxa);
-                const precoParaWebhook = brl(precoCentavosWebhook);
 
-                const nomeLimpo = item.nome.replace(/[\/#\$\.\[\]]/g, "").trim();
-                // Mesmo padrão de ID do cadastro.html: mesmo nome + categoria para
-                // o mesmo cliente = mesmo documento => "set" atualiza em vez de duplicar.
-                const produtoId = `${clienteLPSelecionadoUid}-${categoriaLimpaNome}-${nomeLimpo}`;
+                const dadosPresente = {
+                    categoria_id:             categoriaId,
+                    disponivel:               true,
+                    imagem_url:               item.imagem || 'https://i.ibb.co/0jjSyNRG/logo.png',
+                    preco_original_centavos:  precoOriginalCentavos,
+                    preco_centavos:           precoCentavosWebhook,
+                    taxa_quem_paga:           taxaQuemPagaCliente,
+                    taxa_percentual:          taxaGlobal,
+                    titulo:                   item.nome,
+                    usuario_id:               clienteLPSelecionadoUid,
+                };
 
-                batch.set(doc(db, "presentes", produtoId), {
-                    categoria:               nomeCategoria,
-                    disponivel:              true,
-                    imagem:                  item.imagem || 'https://i.ibb.co/0jjSyNRG/logo.png',
-                    preco:                   precoParaWebhook,
-                    preco_original_centavos: precoOriginalCentavos.toString(),
-                    preco_centavos:          precoCentavosWebhook.toString(),
-                    taxa_quem_paga:          taxaQuemPagaCliente,
-                    taxa_percentual:         taxaGlobal,
-                    titulo:                  item.nome,
-                    usuario_id:              clienteLPSelecionadoUid
-                }, { merge: true });
-            });
-            await batch.commit();
+                const idExistente = existentePorChave.get(`${categoriaId}|${item.nome}`);
+                if (idExistente) {
+                    const { error } = await supabase.from("presentes").update(dadosPresente).eq("id", idExistente);
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase.from("presentes").insert(dadosPresente);
+                    if (error) throw error;
+                }
+            }
 
             toast(`✅ ${itensValidos.length} item(ns) importado(s) para o cliente!`);
             document.getElementById('modalImportarLP').classList.remove('ativo');
@@ -1960,9 +1996,10 @@
 
     async function carregarValorMinimoSaque() {
         try {
-            const snap = await getDoc(doc(db, "admin_config", "global"));
-            const centavos = (snap.exists() && snap.data().valor_minimo_saque_centavos != null)
-                ? parseInt(snap.data().valor_minimo_saque_centavos)
+            const { data, error } = await supabase.from("admin_config").select("valor").eq("chave", "saques").maybeSingle();
+            if (error) throw error;
+            const centavos = data?.valor?.valor_minimo_centavos != null
+                ? parseInt(data.valor.valor_minimo_centavos)
                 : 25000; // padrão: R$ 250,00
             inputValorMinimoSaque.value = formatarCentavosParaReais(centavos);
         } catch(e) { console.error(e); }
@@ -1972,17 +2009,20 @@
         const centavos = parseReaisParaCentavos(inputValorMinimoSaque.value);
         if (centavos <= 0) { toast('⚠️ Valor inválido.'); return; }
         try {
-            await setDoc(doc(db, "admin_config", "global"), { valor_minimo_saque_centavos: centavos }, { merge: true });
+            const { error } = await supabase.from("admin_config").upsert({ chave: "saques", valor: { valor_minimo_centavos: centavos } });
+            if (error) throw error;
             inputValorMinimoSaque.value = formatarCentavosParaReais(centavos);
             toast('✅ Valor mínimo de saque atualizado!');
         } catch(e) {
             console.error(e);
-            toast('❌ Erro ao salvar: ' + (e.message || e.code || 'desconhecido'));
+            toast('❌ Erro ao salvar: ' + (e.message || 'desconhecido'));
         }
     });
 
     // ================================================================
-    // MARCAR SAQUE COMO PAGO (via modal, com observação/comprovante)
+    // CONFIRMAR MANUALMENTE UM SAQUE QUE FALHOU (a transferência automática
+    // via Asaas não completou — o admin resolveu por fora, ex: fez o Pix
+    // manualmente pelo painel do Asaas, e usa isso aqui só pra registrar).
     // ================================================================
     let saqueIdPendenteConfirmacao = null;
 
@@ -1991,8 +2031,9 @@
         if (!saque) { toast('❌ Saque não encontrado.'); return; }
 
         saqueIdPendenteConfirmacao = saqueId;
-        document.getElementById('pagamentoClienteNome').textContent = saque.nome || '—';
-        document.getElementById('pagamentoValor').textContent = brl(parseInt(saque.repasse_centavos || 0));
+        const nomeCliente = todosOsPerfis[saque.usuario_id]?.nome || todosOsUsuarios[saque.usuario_id] || '—';
+        document.getElementById('pagamentoClienteNome').textContent = nomeCliente;
+        document.getElementById('pagamentoValor').textContent = brl(parseInt(saque.valor_centavos || 0));
         document.getElementById('pagamentoObservacao').value = '';
         document.getElementById('modalConfirmarPagamento').classList.add('ativo');
     };
@@ -2019,17 +2060,18 @@
         btn.disabled = true;
         btn.textContent = 'Confirmando...';
         try {
-            await updateDoc(doc(db, "saques", saqueIdPendenteConfirmacao), {
-                status: 'pago',
-                data_pagamento: new Date(),
-                observacao_pagamento: observacao || null
-            });
-            toast('✅ Saque marcado como pago!');
+            const { error } = await supabase.from("saques").update({
+                status: 'concluido',
+                data_confirmacao_manual: new Date().toISOString(),
+                observacao_admin: observacao || null
+            }).eq("id", saqueIdPendenteConfirmacao);
+            if (error) throw error;
+            toast('✅ Saque marcado como concluído!');
             document.getElementById('modalConfirmarPagamento').classList.remove('ativo');
             saqueIdPendenteConfirmacao = null;
         } catch(e) {
             console.error(e);
-            toast('❌ Erro ao marcar saque como pago: ' + (e.message || e.code || 'desconhecido'));
+            toast('❌ Erro ao marcar saque como concluído: ' + (e.message || 'desconhecido'));
         } finally {
             btn.disabled = false;
             btn.textContent = '✅ Confirmar pagamento';
@@ -2060,28 +2102,23 @@
 
     async function executarExclusaoCliente(uid, email) {
         try {
-            const batch = writeBatch(db);
+            const { data: sessaoAtual } = await supabase.auth.getSession();
+            const resp = await fetch(edgeFunctions.excluirCliente, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
+                },
+                body: JSON.stringify({ uid }),
+            });
+            const resultado = await resp.json();
+            if (!resp.ok) throw new Error(resultado.erro || 'Falha ao excluir cliente');
 
-            // 1. Produtos do cliente
-            const produtosSnap = await getDocs(query(collection(db, "presentes"), where("usuario_id", "==", uid)));
-            produtosSnap.forEach(d => batch.delete(d.ref));
-
-            // 2. Saques do cliente
-            const saquesSnap = await getDocs(query(collection(db, "saques"), where("usuario_id", "==", uid)));
-            saquesSnap.forEach(d => batch.delete(d.ref));
-
-            // 3. Configurações do cliente
-            batch.delete(doc(db, "configuracoes", uid));
-
-            // 4. Perfil do cliente (nome, cpf, telefone, data de cadastro)
-            batch.delete(doc(db, "perfis", uid));
-
-            await batch.commit();
-            toast(`✅ Cliente "${email}" excluído (${produtosSnap.size} item(ns), ${saquesSnap.size} saque(s)). Lembre-se: a CONTA DE LOGIN (Firebase Authentication) não é apagada automaticamente — remova-a manualmente no Firebase Console se necessário.`);
+            toast(`✅ Cliente "${email}" excluído — conta de login, perfil, subconta, itens, configurações e saques removidos automaticamente.`);
             carregarDadosPainel();
         } catch(e) {
             console.error(e);
-            toast('❌ Erro ao excluir cliente: ' + (e.message || e.code || 'desconhecido'));
+            toast('❌ Erro ao excluir cliente: ' + (e.message || 'desconhecido'));
         }
     }
 
@@ -2101,6 +2138,7 @@
     }
 
     let todosOsProdutos = [];
+    let todasContribuicoes = []; // linhas da tabela contribuicoes (produto_id, nome, valor_centavos, cotas, criado_em...)
     let todosOsUsuarios = {};
     let todasConfiguracoes = {}; // uid -> { email, taxa_quem_paga, ... }
     let todosOsPerfis = {};      // uid -> { email, criado_em, nome, ... } — fonte real da data de cadastro
@@ -2117,47 +2155,52 @@
     // ------------------------------------------------------------------
 
     async function carregarConfiguracoes() {
-        const snap = await getDocs(collection(db, "configuracoes"));
+        const { data, error } = await supabase.from("configuracoes").select("*");
+        if (error) { console.error(error); return; }
         todasConfiguracoes = {};
-        snap.docs.forEach(d => {
-            todasConfiguracoes[d.id] = { id: d.id, ...d.data() };
-            if (d.data().email) todosOsUsuarios[d.id] = d.data().email;
+        (data || []).forEach(row => {
+            todasConfiguracoes[row.usuario_id] = row;
         });
     }
 
     async function carregarPerfis() {
-        const snap = await getDocs(collection(db, "perfis"));
+        const { data, error } = await supabase.from("perfis").select("*");
+        if (error) { console.error(error); return; }
         todosOsPerfis = {};
-        snap.docs.forEach(d => {
-            todosOsPerfis[d.id] = { id: d.id, ...d.data() };
-            if (d.data().email) todosOsUsuarios[d.id] = d.data().email;
+        (data || []).forEach(row => {
+            todosOsPerfis[row.id] = row;
+            if (row.email) todosOsUsuarios[row.id] = row.email;
         });
         atualizarFiltroAnos();
     }
 
     async function carregarProdutos() {
-        const snap = await getDocs(collection(db, "presentes"));
-        todosOsProdutos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const { data, error } = await supabase.from("presentes").select("*");
+        if (error) { console.error(error); return; }
+        todosOsProdutos = data || [];
 
         // Coletar UIDs únicos
         const uids = [...new Set(todosOsProdutos.map(p => p.usuario_id).filter(Boolean))];
 
-        // Carregar e-mails dos usuários (via configuracoes ou auth — aqui usamos configuracoes)
+        // E-mail já deve ter vindo de carregarPerfis (roda em paralelo) —
+        // isso aqui é só uma rede de segurança pra quem não apareceu lá.
         for (const uid of uids) {
             if (!todosOsUsuarios[uid]) {
-                try {
-                    const configSnap = await getDoc(doc(db, "configuracoes", uid));
-                    todosOsUsuarios[uid] = configSnap.exists()
-                        ? (configSnap.data().email || uid.slice(0, 8) + '...')
-                        : uid.slice(0, 8) + '...';
-                } catch { todosOsUsuarios[uid] = uid.slice(0, 8) + '...'; }
+                todosOsUsuarios[uid] = todosOsPerfis[uid]?.email || uid.slice(0, 8) + '...';
             }
         }
     }
 
+    async function carregarContribuicoes() {
+        const { data, error } = await supabase.from("contribuicoes").select("*");
+        if (error) { console.error(error); return; }
+        todasContribuicoes = data || [];
+    }
+
     async function carregarDadosPainel(mostrarToast = false) {
         try {
-            await Promise.all([carregarProdutos(), carregarConfiguracoes(), carregarPerfis()]);
+            await carregarPerfis();
+            await Promise.all([carregarProdutos(), carregarConfiguracoes(), carregarContribuicoes()]);
 
             atualizarVisaoGeral();
             atualizarTabelaClientes();
@@ -2175,8 +2218,10 @@
     let todosOsSaques = [];
 
     function escutarSaques() {
-        onSnapshot(collection(db, "saques"), (snap) => {
-            todosOsSaques = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        async function carregar() {
+            const { data, error } = await supabase.from("saques").select("*").order("criado_em", { ascending: false });
+            if (error) { console.error(error); return; }
+            todosOsSaques = data || [];
             renderizarSaques(todosOsSaques);
             document.getElementById('labelTotalSaques').textContent = todosOsSaques.length + ' solicitação(ões)';
             atualizarBadgeSaques(todosOsSaques);
@@ -2188,7 +2233,11 @@
             // O saldo pendente exibido na aba Clientes depende dos saques —
             // recalcula a tabela quando chegam novos dados.
             atualizarTabelaClientes();
-        });
+        }
+        carregar();
+        supabase.channel('saques-admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'saques' }, carregar)
+            .subscribe();
     }
 
     // ================================================================
@@ -2405,8 +2454,8 @@
             // saques anteriores. É o que o cliente tem disponível AGORA.
             const repasseLiquidoTotal = contribuicoesUsuario.reduce((acc, c) => acc + calcularRepasse(c).repasseCentavos, 0);
             const jaPagoCentavos = todosOsSaques
-                .filter(s => s.usuario_id === uid && s.status === 'pago')
-                .reduce((acc, s) => acc + parseInt(s.repasse_centavos || 0), 0);
+                .filter(s => s.usuario_id === uid && s.status === 'concluido')
+                .reduce((acc, s) => acc + parseInt(s.valor_centavos || 0), 0);
             const saldoPendenteCentavos = Math.max(0, repasseLiquidoTotal - jaPagoCentavos);
 
             // Marca visualmente quem já passou de 1 ano de cadastro —
@@ -2574,22 +2623,32 @@
     // contribuições existir (só tinham presenteado_por + disponivel:false).
     function obterTodasContribuicoesAdmin() {
         const lista = [];
+        const produtosPorId = new Map(todosOsProdutos.map(p => [p.id, p]));
+        const produtosComContribuicao = new Set();
+
+        todasContribuicoes.forEach((c, idx) => {
+            const p = produtosPorId.get(c.produto_id);
+            if (!p) return; // contribuição de um produto já excluído — ignora
+            produtosComContribuicao.add(c.produto_id);
+            lista.push({
+                id: c.produto_id + '#' + idx,
+                produto: p,
+                usuario_id: p.usuario_id,
+                titulo: p.titulo,
+                nome: c.nome,
+                valorCentavos: parseInt(c.valor_centavos || 0),
+                data: c.criado_em,
+                comprovanteUrl: c.comprovante_url,
+                cotas: c.cotas || null,
+            });
+        });
+
+        // Rede de segurança: produto marcado como presenteado mas sem
+        // linha correspondente em contribuicoes (não deveria acontecer no
+        // fluxo normal — confirmarPagamento sempre grava as duas coisas
+        // juntas — mas cobre qualquer inconsistência manual no banco).
         todosOsProdutos.forEach(p => {
-            if (Array.isArray(p.contribuicoes) && p.contribuicoes.length > 0) {
-                p.contribuicoes.forEach((c, idx) => {
-                    lista.push({
-                        id: p.id + '#' + idx,
-                        produto: p,
-                        usuario_id: p.usuario_id,
-                        titulo: p.titulo,
-                        nome: c.nome,
-                        valorCentavos: parseInt(c.valor_centavos || 0),
-                        data: c.data,
-                        comprovanteUrl: c.comprovante_url,
-                        cotas: c.cotas || null,
-                    });
-                });
-            } else if (p.presenteado_por && p.disponivel === false) {
+            if (p.presenteado_por && p.disponivel === false && !produtosComContribuicao.has(p.id)) {
                 lista.push({
                     id: p.id + '#0',
                     produto: p,
@@ -2597,7 +2656,7 @@
                     titulo: p.titulo,
                     nome: p.presenteado_por,
                     valorCentavos: parseInt(p.preco_original_centavos || p.preco_centavos || 0),
-                    data: p.data_presente,
+                    data: p.data_pagamento,
                     comprovanteUrl: p.comprovante_url,
                     cotas: null,
                 });
@@ -2718,66 +2777,63 @@
             return;
         }
 
+        const chipsPorStatus = {
+            processando: '<span class="chip chip-amarelo">Processando</span>',
+            concluido:   '<span class="chip chip-verde">Concluído</span>',
+            falhou:      '<span class="chip chip-vermelho">Falhou</span>',
+        };
+
         container.innerHTML = saques.map(s => {
-            const totalBrl   = brl(parseInt(s.total_centavos || 0));
-            const lucroB     = brl(parseInt(s.lucro_centavos || 0));
-            const repasseB   = brl(parseInt(s.repasse_centavos || 0));
-            const wppNum     = (s.whatsapp || '').replace(/\D/g, '');
-            const wppLink    = `https://wa.me/55${wppNum}?text=${encodeURIComponent(`Olá ${s.nome || 'cliente'}! Seu saque foi processado. ✅`)}`;
-            const statusChip = s.status === 'pago'
-                ? '<span class="chip chip-verde">Pago</span>'
-                : '<span class="chip chip-amarelo">Pendente</span>';
+            const valorBrl  = brl(parseInt(s.valor_centavos || 0));
+            const perfil    = todosOsPerfis[s.usuario_id] || {};
+            const nome      = perfil.nome || todosOsUsuarios[s.usuario_id] || '—';
+            const statusChip = chipsPorStatus[s.status] || `<span class="chip">${escapeHTML(s.status || '—')}</span>`;
 
             return `<div class="saque-card">
                 <div>
-                    <div class="saque-nome">${escapeHTML(s.nome || '—')} ${statusChip}</div>
+                    <div class="saque-nome">${escapeHTML(nome)} ${statusChip}</div>
                     <div class="saque-info">
                         <div class="saque-info-item">
-                            <span class="saque-info-label">PIX / CPF</span>
-                            <span class="saque-info-valor">${s.cpf || s.pix || '—'}</span>
+                            <span class="saque-info-label">Chave Pix</span>
+                            <span class="saque-info-valor">${escapeHTML(s.pix_key || '—')} (${escapeHTML(s.pix_key_type || 'CPF')})</span>
                         </div>
                         <div class="saque-info-item">
-                            <span class="saque-info-label">Total movimentado</span>
-                            <span class="saque-info-valor">${totalBrl}</span>
+                            <span class="saque-info-label">Valor solicitado</span>
+                            <span class="saque-info-valor verde">${valorBrl}</span>
                         </div>
                         <div class="saque-info-item">
-                            <span class="saque-info-label">Meu lucro</span>
-                            <span class="saque-info-valor amarelo">${lucroB}</span>
-                        </div>
-                        <div class="saque-info-item">
-                            <span class="saque-info-label">A repassar</span>
-                            <span class="saque-info-valor verde">${repasseB}</span>
-                        </div>
-                        <div class="saque-info-item">
-                            <span class="saque-info-label">WhatsApp</span>
-                            <span class="saque-info-valor">${s.whatsapp || '—'}</span>
+                            <span class="saque-info-label">Transferência Asaas</span>
+                            <span class="saque-info-valor">${s.asaas_transfer_id || '—'}</span>
                         </div>
                         <div class="saque-info-item">
                             <span class="saque-info-label">Data solicitação</span>
-                            <span class="saque-info-valor">${fmtDate(s.data_solicitacao)}</span>
+                            <span class="saque-info-valor">${fmtDate(s.criado_em)}</span>
                         </div>
-                        ${s.status === 'pago' ? `<div class="saque-info-item">
-                            <span class="saque-info-label">Data pagamento</span>
-                            <span class="saque-info-valor verde">${fmtDate(s.data_pagamento)}</span>
+                        ${s.status === 'concluido' && s.data_confirmacao_manual ? `<div class="saque-info-item">
+                            <span class="saque-info-label">Confirmado manualmente em</span>
+                            <span class="saque-info-valor verde">${fmtDate(s.data_confirmacao_manual)}</span>
                         </div>` : ''}
                     </div>
-                    ${s.status === 'pago' && s.observacao_pagamento ? `<div style="margin-top:10px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:12px; color:var(--text3);">
-                        📝 ${s.observacao_pagamento}
+                    ${s.status === 'falhou' && s.erro_detalhe ? `<div style="margin-top:10px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:12px; color:#f87171;">
+                        ⚠️ ${escapeHTML(s.erro_detalhe)}
+                    </div>` : ''}
+                    ${s.status === 'concluido' && s.observacao_admin ? `<div style="margin-top:10px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:12px; color:var(--text3);">
+                        📝 ${escapeHTML(s.observacao_admin)}
                     </div>` : ''}
                 </div>
                 <div class="saque-acoes">
-                    ${s.status !== 'pago' ? `<button class="btn-tabela btn-marcar-pago" data-saque-id="${s.id}" onclick="marcarSaqueComoPago('${s.id}')">✅ Marcar como pago</button>` : ''}
-                    ${wppNum ? `<a href="${wppLink}" target="_blank" class="btn-tabela btn-wpp">💬 WhatsApp</a>` : ''}
+                    ${s.status === 'falhou' ? `<button class="btn-tabela btn-marcar-pago" data-saque-id="${s.id}" onclick="marcarSaqueComoPago('${s.id}')">✅ Marcar como resolvido</button>` : ''}
                 </div>
             </div>`;
         }).join('');
     }
 
     // ══════════════════════════════════════════════════════════
-    // BADGE SAQUES PENDENTES
+    // BADGE SAQUES COM FALHA (precisam de atenção do admin — os que
+    // estão "processando" são o fluxo normal e não entram na contagem)
     // ══════════════════════════════════════════════════════════
     function atualizarBadgeSaques(saques) {
-        const pendentes = saques.filter(s => s.status !== 'pago');
+        const pendentes = saques.filter(s => s.status === 'falhou');
         const badge = document.getElementById('badgeSaquesPendentes');
         if (!badge) return;
         if (pendentes.length > 0) {
@@ -2789,22 +2845,26 @@
     }
 
     // ══════════════════════════════════════════════════════════
-    // RESUMO FINANCEIRO DOS SAQUES
+    // RESUMO DOS SAQUES
+    // ⚠️ Não existe mais "lucro" por saque — a taxa da plataforma já é
+    // descontada no split, no momento do pagamento (fica registrada em
+    // contribuicoes/transacoes, não aqui). O card de lucro virou contagem
+    // de falhas, que é o que realmente precisa de atenção nesta tela.
     // ══════════════════════════════════════════════════════════
     function atualizarResumoSaques(saques) {
-        const pendentes = saques.filter(s => s.status !== 'pago');
-        const pagos     = saques.filter(s => s.status === 'pago');
+        const processando = saques.filter(s => s.status === 'processando');
+        const concluidos   = saques.filter(s => s.status === 'concluido');
+        const falhados     = saques.filter(s => s.status === 'falhou');
 
-        const totalPendente = pendentes.reduce((a, s) => a + parseInt(s.repasse_centavos || 0), 0);
-        const totalPago     = pagos.reduce((a, s) => a + parseInt(s.repasse_centavos || 0), 0);
-        const totalLucro    = saques.reduce((a, s) => a + parseInt(s.lucro_centavos || 0), 0);
+        const totalProcessando = processando.reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
+        const totalConcluido   = concluidos.reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
         const el = (id) => document.getElementById(id);
-        if (el('saqPendente'))   el('saqPendente').textContent   = brl(totalPendente);
-        if (el('saqPendenteQtd')) el('saqPendenteQtd').textContent = `${pendentes.length} solicitação(ões)`;
-        if (el('saqPago'))       el('saqPago').textContent       = brl(totalPago);
-        if (el('saqPagoQtd'))    el('saqPagoQtd').textContent    = `${pagos.length} repasse(s) realizado(s)`;
-        if (el('saqLucro'))      el('saqLucro').textContent      = brl(totalLucro);
+        if (el('saqPendente'))   el('saqPendente').textContent   = brl(totalProcessando);
+        if (el('saqPendenteQtd')) el('saqPendenteQtd').textContent = `${processando.length} solicitação(ões)`;
+        if (el('saqPago'))       el('saqPago').textContent       = brl(totalConcluido);
+        if (el('saqPagoQtd'))    el('saqPagoQtd').textContent    = `${concluidos.length} repasse(s) realizado(s)`;
+        if (el('saqLucro'))      el('saqLucro').textContent      = `${falhados.length} falha(s)`;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -2819,22 +2879,23 @@
     });
 
     // ══════════════════════════════════════════════════════════
-    // MARCAR TODOS PENDENTES COMO PAGO
+    // MARCAR TODAS AS FALHAS COMO RESOLVIDAS (em lote)
+    // ⚠️ Adaptado do antigo "marcar todos como pago": no modelo automático,
+    // só faz sentido em lote pra saques que FALHARAM e foram resolvidos
+    // manualmente por fora (transferências "processando" são o fluxo normal
+    // e nunca devem ser sobrescritas em massa).
     // ══════════════════════════════════════════════════════════
     document.getElementById('btnMarcarTodosPago')?.addEventListener('click', async () => {
-        const pendentes = todosOsSaques.filter(s => s.status !== 'pago');
-        if (pendentes.length === 0) { toast('Não há saques pendentes.'); return; }
-        if (!confirm(`Marcar ${pendentes.length} saque(s) como pago? Esta ação não pode ser desfeita.`)) return;
+        const falhados = todosOsSaques.filter(s => s.status === 'falhou');
+        if (falhados.length === 0) { toast('Não há saques com falha pendente de resolução.'); return; }
+        if (!confirm(`Marcar ${falhados.length} saque(s) com falha como resolvido(s)? Use isso só depois de confirmar manualmente que o dinheiro foi transferido. Esta ação não pode ser desfeita.`)) return;
         try {
-            const batch = writeBatch(db);
-            pendentes.forEach(s => {
-                batch.update(doc(db, "saques", s.id), {
-                    status: "pago",
-                    data_pagamento: serverTimestamp()
-                });
-            });
-            await batch.commit();
-            toast(`✅ ${pendentes.length} saque(s) marcado(s) como pago!`);
+            const { error } = await supabase.from("saques").update({
+                status: "concluido",
+                data_confirmacao_manual: new Date().toISOString(),
+            }).in("id", falhados.map(s => s.id));
+            if (error) throw error;
+            toast(`✅ ${falhados.length} saque(s) marcado(s) como resolvido(s)!`);
         } catch(e) {
             console.error(e);
             toast('❌ Erro ao atualizar saques.');
@@ -2849,20 +2910,30 @@
         // (cota parcial inclusa), não o preço cheio do produto.
         const totalMovimentado = contribuicoes.reduce((a, c) => a + c.valorCentavos, 0);
 
-        // Já sacado = repasses já pagos
+        // Já sacado = transferências automáticas concluídas
         const jaSacado = saques
-            .filter(s => s.status === 'pago')
-            .reduce((a, s) => a + parseInt(s.repasse_centavos || 0), 0);
+            .filter(s => s.status === 'concluido')
+            .reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
-        // Aguardando saque = repasses pendentes
+        // Aguardando = transferências em andamento (não inclui as que falharam)
         const aguardando = saques
-            .filter(s => s.status !== 'pago')
-            .reduce((a, s) => a + parseInt(s.repasse_centavos || 0), 0);
+            .filter(s => s.status === 'processando')
+            .reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
-        // Minha receita = meu lucro acumulado nos saques já feitos
-        const minhaReceita = saques
-            .filter(s => s.status === 'pago')
-            .reduce((a, s) => a + parseInt(s.lucro_centavos || 0), 0);
+        // ⚠️ Minha receita agora é uma ESTIMATIVA: a taxa não fica mais
+        // registrada por saque (ela já é descontada no split, no momento
+        // do pagamento). Aqui recalculamos usando a taxa_percentual salva
+        // em CADA produto — se o dono mudou o toggle depois da venda, o
+        // valor histórico real pode ter sido ligeiramente diferente.
+        const minhaReceita = contribuicoes.reduce((a, c) => {
+            const produto = c.produto;
+            const taxaPerc = parseFloat(produto?.taxa_percentual || 0);
+            if (!taxaPerc) return a;
+            const base = produto?.taxa_quem_paga === 'convidado'
+                ? c.valorCentavos / (1 + taxaPerc / 100)
+                : c.valorCentavos;
+            return a + Math.round(base * taxaPerc / 100);
+        }, 0);
 
         const el = (id) => document.getElementById(id);
         if (el('resumoTotalMovimentado')) el('resumoTotalMovimentado').textContent = brl(totalMovimentado);
