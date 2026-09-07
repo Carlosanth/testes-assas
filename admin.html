@@ -88,9 +88,6 @@
             <button class="nav-item" data-secao="banco-imagens">
                 <span class="icon">🖼️</span><span>Banco de Imagens</span>
             </button>
-            <button class="nav-item" data-secao="temas">
-                <span class="icon">🎨</span><span>Temas</span>
-            </button>
             <button class="nav-item" data-secao="comunicados">
                 <span class="icon">📢</span><span>Comunicados</span>
             </button>
@@ -313,10 +310,11 @@
                     <div style="display:flex; gap:8px; align-items:center;">
                         <select id="filtroStatusSaque" style="background:var(--surface2); border:1px solid var(--border2); color:var(--text); border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer;">
                             <option value="">Todos</option>
-                            <option value="pendente">⏳ Pendentes</option>
-                            <option value="pago">✅ Pagos</option>
+                            <option value="processando">⏳ Processando</option>
+                            <option value="concluido">✅ Concluídos</option>
+                            <option value="falhou">⚠️ Falharam</option>
                         </select>
-                        <button id="btnMarcarTodosPago" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#34d399; border-radius:8px; padding:4px 12px; font-size:12px; cursor:pointer; font-weight:600;">✅ Marcar todos pendentes como pago</button>
+                        <button id="btnMarcarTodosPago" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#34d399; border-radius:8px; padding:4px 12px; font-size:12px; cursor:pointer; font-weight:600;">✅ Marcar falhas como resolvidas</button>
                         <span id="labelTotalSaques" style="font-size:11px; color:var(--text3);">—</span>
                     </div>
                 </div>
@@ -532,23 +530,6 @@
             </div>
         </section>
 
-        <!-- ===== SEÇÃO: TEMAS (papéis de parede prontos) ===== -->
-        <section class="secao" id="secao-temas">
-            <div class="lp-toolbar">
-                <div class="lp-toolbar-acoes">
-                    <button class="btn-lp-primario" id="btnNovoTema">➕ Novo tema</button>
-                </div>
-            </div>
-            <p style="font-size:12px; color:var(--text2); margin:0 0 16px;">
-                Papéis de parede que aparecem no carrossel "Temas da lista" pro cliente escolher.
-                Isso não impede o cliente de subir uma imagem própria — ele pode usar a dele
-                normalmente, essas opções aqui são só sugestões prontas.
-            </p>
-            <div class="lp-grid-itens" id="temasGrid">
-                <div class="lp-vazio">Carregando...</div>
-            </div>
-        </section>
-
         <section class="secao" id="secao-comunicados">
             <div class="taxa-config-card" style="margin-bottom:20px;">
                 <h3>📢 Novo comunicado global</h3>
@@ -744,27 +725,6 @@
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
             <button class="btn-tabela" id="btnCancelarImagemBanco" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
             <button class="btn-tabela btn-marcar-pago" id="btnSalvarImagemBanco">Salvar</button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL NOVO/EDITAR TEMA -->
-<div class="modal-admin" id="modalTema">
-    <div class="modal-admin-content" style="max-width:440px;">
-        <div class="modal-admin-header">
-            <h3 id="modalTemaTitulo">➕ Novo tema</h3>
-            <button class="btn-fechar-modal" id="btnFecharModalTema">✕</button>
-        </div>
-        <span class="label-form-admin">Nome do tema</span>
-        <input type="text" id="inputTemaNome" class="campo-form-admin" placeholder="Ex: Floral rosê">
-        <span class="label-form-admin">Ordem no carrossel</span>
-        <input type="number" id="inputTemaOrdem" class="campo-form-admin" placeholder="0" min="0" step="1">
-        <span class="label-form-admin">Imagem</span>
-        <img id="temaPreview" class="lp-preview-imagem" alt="Pré-visualização">
-        <input type="file" id="inputTemaArquivo" class="upload-form-admin" accept="image/*">
-        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
-            <button class="btn-tabela" id="btnCancelarTema" style="background:var(--surface2); color:var(--text2);">Cancelar</button>
-            <button class="btn-tabela btn-marcar-pago" id="btnSalvarTema">Salvar</button>
         </div>
     </div>
 </div>
