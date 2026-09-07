@@ -51,6 +51,7 @@ export const edgeFunctions = {
     criarSubconta: `${supabaseUrl}/functions/v1/criarSubconta`,
     solicitarSaque: `${supabaseUrl}/functions/v1/solicitarSaque`,
     uploadImagem: `${supabaseUrl}/functions/v1/uploadImagem`,
+    excluirCliente: `${supabaseUrl}/functions/v1/excluirCliente`,
 };
 
 // ── Helper usado em toda página protegida ───────────────────────────
