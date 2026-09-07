@@ -15,29 +15,12 @@
         window.renderizarCategoriasSeguras = renderizarCategoriasSeguras;
         window.formatarData = formatarData;
         window.formatarMoeda = formatarMoeda;
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, query, where, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, addDoc, orderBy, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { supabase, edgeFunctions } from "./supabase-config.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDcDs0qgXdOQRnMW2mClO1kCoYmbVfeThY",
-        authDomain: "escolhaseupresente-35d3d.firebaseapp.com",
-        projectId: "escolhaseupresente-35d3d",
-        storageBucket: "escolhaseupresente-35d3d.firebasestorage.app",
-        messagingSenderId: "374767023277",
-        appId: "1:374767023277:web:0a6d45cb62136ba4040224"
-    };
-
-    const app  = initializeApp(firebaseConfig);
-    const db   = getFirestore(app);
-    const auth = getAuth(app);
-
-    // UID do admin — só este e-mail pode acessar
-    const ADMIN_EMAIL = "carlosantonio.d.m.o@gmail.com"; // ← troque pelo seu e-mail
-    // ⚠️ Chave do ImgBB removida daqui — o upload agora passa pela Cloud Function
-    // uploadImagem (mesma usada no cadastro.html), que já tem rate limit e validação
-    // de tamanho/tipo no servidor. Nunca coloque chaves de API de terceiros em HTML
-    // publicado, pois qualquer pessoa consegue ler o código-fonte da página.
+    // UID do admin — só este e-mail pode acessar. A regra de verdade fica no
+    // banco (função is_admin(), usada pelas policies de RLS); esse check
+    // aqui é só pra UI decidir mostrar login ou painel mais rápido.
+    const ADMIN_EMAIL = "carlosantonio.d.m.o@gmail.com";
 
     let taxaGlobal = 2.8;
 
@@ -81,7 +64,7 @@
         });
     }
 
-    async function fazerUploadImagemImgBB(arquivoOuBlob, pasta) {
+    async function fazerUploadImagemImgBB(arquivoOuBlob) {
         try {
             // Converte o Blob/arquivo pra base64 (sem o prefixo "data:image/...;base64,")
             const base64 = await new Promise((resolve, reject) => {
@@ -93,16 +76,12 @@
 
             // ✅ Upload via Cloud Function (mesma usada no cadastro.html) — nunca
             // chama o ImgBB direto do navegador, pra não expor chave de API.
-            // 'pasta' é opcional — quando informado, a Cloud Function usa como
-            // subpasta no R2 (ex: 'temas'); sem isso, cai na pasta padrão.
-            const corpoRequisicao = { imagemBase64: base64 };
-            if (pasta) corpoRequisicao.pasta = pasta;
             const response = await fetch(
                 "https://southamerica-east1-escolhaseupresente-35d3d.cloudfunctions.net/uploadImagem",
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(corpoRequisicao)
+                    body: JSON.stringify({ imagemBase64: base64 })
                 }
             );
             const data = await response.json();
@@ -483,144 +462,6 @@
         try {
             await deleteDoc(doc(db, "banco_imagens", id));
             toast('🗑 Imagem removida do banco.');
-        } catch (e) {
-            console.error(e);
-            toast('❌ Erro ao excluir.');
-        }
-    }
-
-    // ================================================================
-    // TEMAS — papéis de parede prontos pro carrossel "Temas da lista"
-    // (cadastro.html lê a coleção "temas" direto: campos url/nome/ordem)
-    // ================================================================
-    let temasCache = [];
-    let editandoTemaId = null;
-    let urlTemaSelecionada = '';
-
-    function escutarTemas() {
-        onSnapshot(collection(db, "temas"), snap => {
-            temasCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            temasCache.sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99));
-            renderizarGridTemas(temasCache);
-        }, err => console.error("Erro ao carregar temas:", err));
-    }
-
-    function renderizarGridTemas(lista) {
-        const grid = document.getElementById('temasGrid');
-        if (!grid) return;
-        if (!lista.length) { grid.innerHTML = '<div class="lp-vazio">Nenhum tema cadastrado ainda.</div>'; return; }
-        grid.innerHTML = lista.map(item => `
-            <div class="lp-card-item" data-item-id="${item.id}">
-                <img src="${item.url}" alt="${escapeHTML(item.nome || '')}" loading="lazy">
-                <div class="lp-card-item-corpo">
-                    <div class="lp-card-item-nome">${escapeHTML(item.nome || '')}</div>
-                    <div style="font-size:10px; color:var(--text3); margin:2px 0 8px;">Ordem: ${item.ordem ?? 0}</div>
-                    <div class="lp-card-item-acoes">
-                        <button class="btn-tabela btn-detalhe btn-editar-tema" data-id="${item.id}">✏️ Editar</button>
-                        <button class="btn-tabela btn-excluir-cliente btn-excluir-tema" data-id="${item.id}">🗑️</button>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        grid.querySelectorAll('.btn-editar-tema').forEach(btn => {
-            btn.addEventListener('click', () => abrirModalTema(btn.dataset.id));
-        });
-        grid.querySelectorAll('.btn-excluir-tema').forEach(btn => {
-            btn.addEventListener('click', () => excluirTema(btn.dataset.id));
-        });
-    }
-
-    function abrirModalTema(id) {
-        editandoTemaId = id;
-        urlTemaSelecionada = '';
-        const titulo = document.getElementById('modalTemaTitulo');
-        const preview = document.getElementById('temaPreview');
-        const nome = document.getElementById('inputTemaNome');
-        const ordem = document.getElementById('inputTemaOrdem');
-        if (id) {
-            const item = temasCache.find(t => t.id === id);
-            if (!item) return;
-            titulo.textContent = '✏️ Editar tema';
-            nome.value = item.nome || '';
-            ordem.value = item.ordem ?? 0;
-            urlTemaSelecionada = item.url || '';
-            preview.src = item.url || '';
-            preview.style.display = item.url ? 'block' : 'none';
-        } else {
-            titulo.textContent = '➕ Novo tema';
-            nome.value = '';
-            ordem.value = temasCache.length;
-            preview.style.display = 'none';
-            preview.src = '';
-        }
-        document.getElementById('inputTemaArquivo').value = '';
-        document.getElementById('modalTema').classList.add('ativo');
-    }
-
-    document.getElementById('btnNovoTema')?.addEventListener('click', () => abrirModalTema(null));
-    document.getElementById('btnFecharModalTema')?.addEventListener('click', () => document.getElementById('modalTema').classList.remove('ativo'));
-    document.getElementById('btnCancelarTema')?.addEventListener('click', () => document.getElementById('modalTema').classList.remove('ativo'));
-
-    document.getElementById('inputTemaArquivo')?.addEventListener('change', async (e) => {
-        const arquivo = e.target.files[0];
-        if (!arquivo) return;
-        const preview = document.getElementById('temaPreview');
-        preview.style.display = 'block';
-        preview.src = URL.createObjectURL(arquivo);
-
-        // Papéis de parede aparecem em tela cheia — mantém proporção mais
-        // larga (1200x800) que os 900x900 usados no banco de produtos.
-        const blob = await redimensionarImagem(arquivo, 1200, 800, 0.88);
-        // pasta:'temas' → a Cloud Function uploadImagem salva no R2 dentro
-        // de uma subpasta separada, em vez de misturar com fotos de item.
-        const url = await fazerUploadImagemImgBB(blob, 'temas');
-        urlTemaSelecionada = url;
-        preview.src = url;
-        toast('✅ Imagem enviada!');
-    });
-
-    document.getElementById('btnSalvarTema')?.addEventListener('click', async () => {
-        const nome = document.getElementById('inputTemaNome').value.trim();
-        const ordemTexto = document.getElementById('inputTemaOrdem').value;
-        const ordem = ordemTexto === '' ? 0 : parseInt(ordemTexto, 10);
-        if (!nome) { toast('⚠️ Informe o nome do tema.'); return; }
-        if (!urlTemaSelecionada) { toast('⚠️ Selecione uma imagem.'); return; }
-        if (isNaN(ordem) || ordem < 0) { toast('⚠️ Ordem inválida.'); return; }
-
-        const btn = document.getElementById('btnSalvarTema');
-        btn.disabled = true;
-        btn.textContent = 'Salvando...';
-
-        try {
-            const dados = {
-                nome,
-                ordem,
-                url: urlTemaSelecionada,
-                atualizado_em: serverTimestamp(),
-            };
-            if (editandoTemaId) {
-                await setDoc(doc(db, "temas", editandoTemaId), dados, { merge: true });
-                toast('✅ Tema atualizado!');
-            } else {
-                dados.criado_em = serverTimestamp();
-                await addDoc(collection(db, "temas"), dados);
-                toast('✅ Tema adicionado!');
-            }
-            document.getElementById('modalTema').classList.remove('ativo');
-        } catch (e) {
-            console.error(e);
-            toast('❌ Erro ao salvar tema.');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Salvar';
-        }
-    });
-
-    async function excluirTema(id) {
-        if (!confirm('Excluir este tema? Ele some do carrossel pros clientes, mas quem já usou continua com a imagem aplicada na lista.')) return;
-        try {
-            await deleteDoc(doc(db, "temas", id));
-            toast('🗑 Tema removido.');
         } catch (e) {
             console.error(e);
             toast('❌ Erro ao excluir.');
@@ -1198,13 +1039,6 @@
         escutarPrecosClientes();
     });
 
-    let temasJaCarregados = false;
-    document.querySelector('[data-secao="temas"]')?.addEventListener('click', () => {
-        if (temasJaCarregados) return;
-        temasJaCarregados = true;
-        escutarTemas();
-    });
-
     // ================================================================
     // TOAST
     // ================================================================
@@ -1248,9 +1082,8 @@
         btn.disabled = true;
         btn.textContent = 'Entrando...';
 
-        try {
-            await signInWithEmailAndPassword(auth, email, senha);
-        } catch (e) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+        if (error) {
             erroEl.textContent = 'E-mail ou senha incorretos.';
             btn.disabled = false;
             btn.textContent = 'Entrar';
@@ -1262,20 +1095,35 @@
     });
 
     document.getElementById('btnSairAdmin').addEventListener('click', async () => {
-        await signOut(auth);
+        await supabase.auth.signOut();
     });
 
-    onAuthStateChanged(auth, async (user) => {
+    let painelJaIniciado = false;
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        const user = session?.user ?? null;
         if (user && user.email === ADMIN_EMAIL) {
             document.getElementById('tela-login').style.display = 'none';
             document.getElementById('painel').style.display = 'block';
-            await carregarTaxaGlobal();
-            await carregarValorMinimoSaque();
-            iniciarPainel();
+            // Guarda contra TOKEN_REFRESHED (dispara periodicamente e não deve
+            // recarregar o painel/re-criar os listeners realtime do zero).
+            if (!painelJaIniciado) {
+                painelJaIniciado = true;
+                await carregarTaxaGlobal();
+                await carregarValorMinimoSaque();
+                iniciarPainel();
+            }
         } else if (user && user.email !== ADMIN_EMAIL) {
-            await signOut(auth);
+            await supabase.auth.signOut();
             document.getElementById('loginErro').textContent = 'Acesso restrito ao administrador.';
-        } else {
+        } else if (event !== 'INITIAL_SESSION' || painelJaIniciado) {
+            painelJaIniciado = false;
+            document.getElementById('tela-login').style.display = 'flex';
+            document.getElementById('painel').style.display = 'none';
+        }
+    });
+    // Cobre o caso de não haver sessão nenhuma já no carregamento da página
+    supabase.auth.getSession().then(({ data }) => {
+        if (!data?.session?.user) {
             document.getElementById('tela-login').style.display = 'flex';
             document.getElementById('painel').style.display = 'none';
         }
@@ -1291,7 +1139,6 @@
         'relatorio':      ['Relatório de Presentes', 'Histórico completo com dados de taxa'],
         'listas-prontas': ['Listas Prontas', 'Categorias e itens sugeridos para os clientes'],
         'banco-imagens':  ['Banco de Imagens', 'Fotos profissionais para sugestão automática no cadastro dos clientes'],
-        'temas':          ['Temas', 'Papéis de parede prontos para o carrossel "Temas da lista"'],
         'comunicados':    ['Comunicados', 'Avisos globais para todos os clientes'],
         'configuracoes':  ['Configurações', 'Parâmetros globais da plataforma']
     };
