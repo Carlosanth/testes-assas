@@ -2427,11 +2427,17 @@
                 // mudar o toggle depois não pode reescrever o histórico de quem
                 // pagou a taxa em vendas já concluídas (isso distorceria o
                 // relatório financeiro e o valor já repassado/a repassar).
-                const fator = taxaQuemPaga === 'convidado'
-                    ? (1 + TAXA_PERCENTUAL / 100)
-                    : 1;
+                //
+                // IMPORTANTE: cada item usa a PRÓPRIA taxa_percentual (a que já
+                // estava gravada nele desde o cadastro), não a TAXA_PERCENTUAL
+                // da sessão atual — senão, se o admin tivesse aumentado a taxa
+                // global depois que esse item foi criado, alternar só o "quem
+                // paga" aqui acabaria empurrando escondido esse aumento pra um
+                // item que deveria ficar com a taxa antiga.
                 const itensDisponiveis = todosOsProdutos.filter(p => p.disponivel !== false);
                 const promises = itensDisponiveis.map(p => {
+                    const taxaDoItem = parseFloat(p.taxa_percentual ?? TAXA_PERCENTUAL);
+                    const fator = taxaQuemPaga === 'convidado' ? (1 + taxaDoItem / 100) : 1;
                     const original = parseInt(p.preco_original_centavos || p.preco_centavos || 0);
                     const novoCentavos = Math.round(original * fator);
                     return supabase.from("presentes").update({
