@@ -2932,18 +2932,13 @@
 
             const { data: perfil } = await supabase
                 .from("perfis")
-                .select("subconta_asaas_status")
+                .select("dados_saque_completos")
                 .eq("id", usuarioAtualUid)
                 .maybeSingle();
 
-            if (perfil?.subconta_asaas_status === "criada") return true;
+            if (perfil?.dados_saque_completos) return true;
 
-            if (perfil?.subconta_asaas_status === "pendente") {
-                mostrarToast('Seus dados de recebimento ainda estão em verificação. Tente novamente em instantes.', 'aviso', '⏳');
-                return false;
-            }
-
-            mostrarToast('Complete seus dados de recebimento antes de compartilhar.', 'aviso', '⚠️');
+            mostrarToast('Complete seu cadastro antes de compartilhar.', 'aviso', '⚠️');
             window.location.href = "onboarding.html";
             return false;
         }

@@ -276,7 +276,6 @@
         <div class="progresso">
             <div class="passo completo" id="passo1"></div>
             <div class="passo ativo"    id="passo2"></div>
-            <div class="passo"          id="passo3"></div>
         </div>
 
         <!-- ETAPA 1 — dados pessoais -->
@@ -284,7 +283,7 @@
             <p class="eyebrow">Quase lá</p>
             <h1 class="titulo">Complete seu perfil</h1>
             <p class="subtitulo">
-                Precisamos de algumas informações para processar seus saques com segurança.
+                Precisamos de algumas informações básicas antes de você começar a receber presentes.
             </p>
 
             <div class="field-group">
@@ -316,73 +315,6 @@
             <div id="msg-erro-1" class="msg-erro"></div>
 
             <button type="button" id="btnSalvarEtapa1" class="btn-primary">Salvar e continuar</button>
-            <button type="button" class="btn-pular" id="btnPular1">Preencher depois</button>
-        </div>
-
-        <!-- ETAPA 2 — dados de recebimento -->
-        <div id="etapa2" class="etapa">
-            <p class="eyebrow">Antes de compartilhar</p>
-            <h1 class="titulo">Dados para recebimento</h1>
-            <p class="subtitulo">
-                Essas informações são exigidas pelo nosso parceiro de pagamentos (Asaas)
-                para viabilizar o recebimento e o saque dos valores da sua lista,
-                conforme normas do Banco Central.
-            </p>
-
-            <div class="field-group-linha">
-                <div class="field-group field-group-cep">
-                    <label for="cepInput">CEP</label>
-                    <input type="tel" id="cepInput" class="field-input" placeholder="00000-000" maxlength="9" required>
-                </div>
-                <div class="field-group">
-                    <label for="enderecoInput">Endereço</label>
-                    <input type="text" id="enderecoInput" class="field-input" placeholder="Rua, avenida..." maxlength="120" required>
-                </div>
-            </div>
-
-            <div class="field-group-linha">
-                <div class="field-group field-group-numero">
-                    <label for="numeroInput">Número</label>
-                    <input type="text" id="numeroInput" class="field-input" placeholder="100" maxlength="10" required>
-                </div>
-                <div class="field-group">
-                    <label for="bairroInput">Bairro</label>
-                    <input type="text" id="bairroInput" class="field-input" placeholder="Bairro" maxlength="80" required>
-                </div>
-            </div>
-
-            <div class="field-group">
-                <label for="complementoInput">Complemento (opcional)</label>
-                <input type="text" id="complementoInput" class="field-input" placeholder="Apto, bloco..." maxlength="60">
-            </div>
-
-            <div class="field-group">
-                <label for="nascimentoInput">Data de nascimento</label>
-                <input type="date" id="nascimentoInput" class="field-input" required>
-            </div>
-
-            <div class="field-group">
-                <label for="rendaInput">Faixa de renda mensal</label>
-                <select id="rendaInput" class="field-select" required>
-                    <option value="" disabled selected>Selecione uma faixa</option>
-                    <option value="2000">Até R$ 2.000</option>
-                    <option value="5000">De R$ 2.001 a R$ 5.000</option>
-                    <option value="10000">De R$ 5.001 a R$ 10.000</option>
-                    <option value="20000">De R$ 10.001 a R$ 20.000</option>
-                    <option value="30000">Acima de R$ 20.000</option>
-                </select>
-            </div>
-
-            <div class="aviso-seguranca">
-                <span>🔒</span>
-                <p>Seus dados são armazenados com segurança e usados exclusivamente para viabilizar o recebimento dos presentes da sua lista.</p>
-            </div>
-
-            <div id="msg-erro-2" class="msg-erro"></div>
-
-            <button type="button" id="btnSalvarEtapa2" class="btn-primary">Salvar e continuar</button>
-            <button type="button" class="btn-voltar" id="btnVoltarEtapa1">← Voltar</button>
-            <button type="button" class="btn-pular" id="btnPular2">Preencher depois</button>
         </div>
 
         <!-- TELA DE SUCESSO -->
@@ -398,30 +330,16 @@
     </div>
 
     <script type="module">
-        import { supabase, edgeFunctions } from "./js/supabase-config.js";
+        import { supabase } from "./js/supabase-config.js";
 
         let usuarioAtual = null;
 
         const passo2 = document.getElementById('passo2');
-        const passo3 = document.getElementById('passo3');
         const etapa1 = document.getElementById('etapa1');
-        const etapa2 = document.getElementById('etapa2');
         const telaSucesso = document.getElementById('tela-sucesso');
 
-        function irParaEtapa2() {
-            etapa1.classList.remove('ativa');
-            etapa2.classList.add('ativa');
-            passo2.className = 'passo completo';
-            passo3.className = 'passo ativo';
-        }
-        function irParaEtapa1() {
-            etapa2.classList.remove('ativa');
-            etapa1.classList.add('ativa');
-            passo2.className = 'passo ativo';
-            passo3.className = 'passo';
-        }
-
-        // ── Garante que só acessa autenticado, e resume na etapa certa ──
+        // ── Garante que só acessa autenticado; se já completou o cadastro,
+        // manda direto pro painel (não há mais nada pra "resumir" aqui).
         supabase.auth.getSession().then(async ({ data }) => {
             if (!data?.session?.user) {
                 window.location.href = "index.html";
@@ -431,16 +349,12 @@
 
             const { data: perfil } = await supabase
                 .from("perfis")
-                .select("cpf, telefone, cidade, estado, subconta_asaas_status")
+                .select("dados_saque_completos")
                 .eq("id", usuarioAtual.id)
                 .maybeSingle();
 
-            if (perfil?.subconta_asaas_status === "criada") {
+            if (perfil?.dados_saque_completos) {
                 window.location.href = "cadastro.html";
-                return;
-            }
-            if (perfil?.cpf && perfil?.telefone && perfil?.cidade && perfil?.estado) {
-                irParaEtapa2();
             }
         });
 
@@ -530,6 +444,10 @@
                 telefone: telefone,
                 cidade:   cidade,
                 estado:   estado,
+                // ⚠️ Sem subconta/split — o pagamento cai direto na conta
+                // master (mesmo modelo do iCasei/Casar.com), então não há
+                // mais nenhuma verificação assíncrona a esperar aqui.
+                dados_saque_completos: true,
             });
 
             btn.textContent = 'Salvar e continuar';
@@ -541,116 +459,9 @@
                 return;
             }
 
-            irParaEtapa2();
-        });
-
-        document.getElementById('btnPular1').addEventListener('click', () => {
-            window.location.href = "cadastro.html";
-        });
-
-        const cepInput = document.getElementById('cepInput');
-        cepInput.addEventListener('input', () => {
-            let v = cepInput.value.replace(/\D/g, '').slice(0, 8);
-            if (v.length > 5) v = v.replace(/(\d{5})(\d{1,3})/, '$1-$2');
-            cepInput.value = v;
-        });
-
-        const enderecoInput = document.getElementById('enderecoInput');
-        const bairroInput   = document.getElementById('bairroInput');
-
-        cepInput.addEventListener('blur', async () => {
-            const cepLimpo = cepInput.value.replace(/\D/g, '');
-            if (cepLimpo.length !== 8) return;
-
-            try {
-                const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-                const data = await resp.json();
-                if (data.erro) {
-                    mostrarErro(msgErro2, 'CEP não encontrado. Confira e tente novamente.');
-                    return;
-                }
-                limparErro(msgErro2);
-                if (data.logradouro && !enderecoInput.value) enderecoInput.value = data.logradouro;
-                if (data.bairro && !bairroInput.value) bairroInput.value = data.bairro;
-            } catch (e) {
-                console.warn('ViaCEP indisponível, preenchimento manual liberado.', e);
-            }
-        });
-
-        document.getElementById('btnSalvarEtapa2').addEventListener('click', async () => {
-            if (!usuarioAtual) return;
-
-            const cep          = cepInput.value.trim();
-            const endereco      = enderecoInput.value.trim();
-            const numero        = document.getElementById('numeroInput').value.trim();
-            const bairro        = bairroInput.value.trim();
-            const complemento   = document.getElementById('complementoInput').value.trim();
-            const nascimento    = document.getElementById('nascimentoInput').value;
-            const renda         = document.getElementById('rendaInput').value;
-            const btn           = document.getElementById('btnSalvarEtapa2');
-
-            limparErro(msgErro2);
-
-            if (cep.replace(/\D/g, '').length !== 8) { mostrarErro(msgErro2, 'Informe um CEP válido.'); return; }
-            if (!endereco) { mostrarErro(msgErro2, 'Informe o endereço.'); return; }
-            if (!numero)   { mostrarErro(msgErro2, 'Informe o número.'); return; }
-            if (!bairro)   { mostrarErro(msgErro2, 'Informe o bairro.'); return; }
-            if (!nascimento) { mostrarErro(msgErro2, 'Informe sua data de nascimento.'); return; }
-            if (!renda)    { mostrarErro(msgErro2, 'Selecione uma faixa de renda.'); return; }
-
-            btn.textContent = 'Enviando...';
-            btn.disabled = true;
-
-            const { error: erroSalvar } = await supabase.from("perfis").upsert({
-                id:                    usuarioAtual.id,
-                endereco_cep:          cep,
-                endereco_rua:          endereco,
-                endereco_numero:       numero,
-                endereco_bairro:       bairro,
-                endereco_complemento:  complemento || null,
-                data_nascimento:       nascimento,
-                renda_mensal_faixa:    Number(renda),
-                dados_saque_completos: true,
-                subconta_asaas_status: "pendente",
-            });
-
-            if (erroSalvar) {
-                console.error('Erro ao salvar dados de recebimento:', erroSalvar);
-                mostrarErro(msgErro2, 'Erro ao salvar. Tente novamente em instantes.');
-                btn.textContent = 'Salvar e continuar';
-                btn.disabled = false;
-                return;
-            }
-
-            const { data: sessaoAtual } = await supabase.auth.getSession();
-            try {
-                const resp = await fetch(edgeFunctions.criarSubconta, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${sessaoAtual.session.access_token}`,
-                    },
-                });
-
-                if (!resp.ok) {
-                    const erroData = await resp.json().catch(() => ({}));
-                    throw new Error(erroData.erro || "Não foi possível concluir a verificação agora.");
-                }
-
-                etapa2.classList.remove('ativa');
-                telaSucesso.style.display = 'block';
-
-            } catch (error) {
-                console.error('Erro ao criar subconta:', error);
-                mostrarErro(msgErro2, error.message || 'Erro ao salvar. Tente novamente em instantes.');
-                btn.textContent = 'Salvar e continuar';
-                btn.disabled = false;
-            }
-        });
-
-        document.getElementById('btnVoltarEtapa1').addEventListener('click', irParaEtapa1);
-        document.getElementById('btnPular2').addEventListener('click', () => {
-            window.location.href = "cadastro.html";
+            etapa1.classList.remove('ativa');
+            telaSucesso.style.display = 'block';
+            passo2.className = 'passo completo';
         });
 
         document.getElementById('btnIrParaLista').addEventListener('click', () => {
