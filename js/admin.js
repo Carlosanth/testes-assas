@@ -2637,6 +2637,9 @@
                 titulo: p.titulo,
                 nome: c.nome,
                 valorCentavos: parseInt(c.valor_centavos || 0),
+                // Valor líquido exato (já gravado pela finalizarCompra), sem
+                // precisar reconstruir via taxa_percentual do produto.
+                valorLiquidoCentavos: c.valor_liquido_centavos != null ? parseInt(c.valor_liquido_centavos) : null,
                 data: c.criado_em,
                 comprovanteUrl: c.comprovante_url,
                 cotas: c.cotas || null,
@@ -2656,6 +2659,16 @@
                     titulo: p.titulo,
                     nome: p.presenteado_por,
                     valorCentavos: parseInt(p.preco_original_centavos || p.preco_centavos || 0),
+                    // Sem transação correspondente, só dá pra estimar usando a
+                    // taxa que ficou gravada no próprio produto.
+                    valorLiquidoCentavos: (() => {
+                        const original = parseInt(p.preco_original_centavos || p.preco_centavos || 0);
+                        const taxaPerc = parseFloat(p.taxa_percentual || 0);
+                        if (!taxaPerc) return original;
+                        return p.taxa_quem_paga === 'convidado'
+                            ? original
+                            : Math.round(original * (1 - taxaPerc / 100));
+                    })(),
                     data: p.data_pagamento,
                     comprovanteUrl: p.comprovante_url,
                     cotas: null,
@@ -2920,19 +2933,12 @@
             .filter(s => s.status === 'processando')
             .reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
-        // ⚠️ Minha receita agora é uma ESTIMATIVA: a taxa não fica mais
-        // registrada por saque (ela já é descontada no split, no momento
-        // do pagamento). Aqui recalculamos usando a taxa_percentual salva
-        // em CADA produto — se o dono mudou o toggle depois da venda, o
-        // valor histórico real pode ter sido ligeiramente diferente.
+        // Comissão real: total recebido menos o que é devido a cada cliente
+        // (valorLiquidoCentavos, gravado com precisão pela finalizarCompra
+        // no momento do pagamento — não é mais uma estimativa reconstruída).
         const minhaReceita = contribuicoes.reduce((a, c) => {
-            const produto = c.produto;
-            const taxaPerc = parseFloat(produto?.taxa_percentual || 0);
-            if (!taxaPerc) return a;
-            const base = produto?.taxa_quem_paga === 'convidado'
-                ? c.valorCentavos / (1 + taxaPerc / 100)
-                : c.valorCentavos;
-            return a + Math.round(base * taxaPerc / 100);
+            const liquido = c.valorLiquidoCentavos != null ? c.valorLiquidoCentavos : c.valorCentavos;
+            return a + (c.valorCentavos - liquido);
         }, 0);
 
         const el = (id) => document.getElementById(id);
@@ -3146,21 +3152,29 @@
     // COMUNICADOS
     const listaComunicadosEl = document.getElementById('listaComunicados');
     function escutarComunicados() {
-        const q = query(collection(db, "avisos_globais"), orderBy("criado_em", "desc"));
-        onSnapshot(q, snap => {
+        async function carregar() {
             if (!listaComunicadosEl) return;
-            if (snap.empty) { listaComunicadosEl.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:16px;">Nenhum comunicado enviado ainda.</p>'; return; }
+            const { data: avisos, error } = await supabase
+                .from("avisos_globais")
+                .select("*")
+                .order("criado_em", { ascending: false });
+            if (error) { console.error("Erro comunicados:", error); return; }
+            if (!avisos || avisos.length === 0) { listaComunicadosEl.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:16px;">Nenhum comunicado enviado ainda.</p>'; return; }
             const icones = { taxa:'💸', instabilidade:'⚠️', comprovante:'📄', info:'📢' };
             listaComunicadosEl.innerHTML = '';
-            snap.forEach(d => {
-                const a = d.data(), id = d.id;
-                const dt = a.criado_em ? (a.criado_em.toDate ? a.criado_em.toDate() : new Date(a.criado_em)).toLocaleString('pt-BR') : '—';
+            avisos.forEach(a => {
+                const id = a.id;
+                const dt = a.criado_em ? new Date(a.criado_em).toLocaleString('pt-BR') : '—';
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border1);';
                 row.innerHTML = `<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">${icones[a.tipo]||'📢'} ${escapeHTML(a.titulo||'—')}${a.fixo?'<span style="font-size:10px;background:rgba(139,92,246,0.25);color:#c4a5ff;border-radius:4px;padding:1px 6px;margin-left:6px;">fixo</span>':''}</div><div style="font-size:12px;color:var(--text2);margin-bottom:4px;white-space:pre-wrap;">${escapeHTML(a.mensagem||'')}</div><div style="font-size:11px;color:var(--text3);">📅 ${dt}</div></div><button onclick="excluirComunicado('${id}')" style="flex-shrink:0;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.28);color:#f87171;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;">🗑 Excluir</button>`;
                 listaComunicadosEl.appendChild(row);
             });
-        }, err => console.error("Erro comunicados:", err));
+        }
+        carregar();
+        supabase.channel('avisos-globais-admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'avisos_globais' }, carregar)
+            .subscribe();
     }
     document.getElementById('btnEnviarComunicado')?.addEventListener('click', async () => {
         const titulo = document.getElementById('comunicadoTitulo')?.value.trim();
@@ -3170,7 +3184,8 @@
         if (!titulo) { toast('⚠️ Informe o título.'); return; }
         if (!mensagem) { toast('⚠️ Informe a mensagem.'); return; }
         try {
-            await addDoc(collection(db, "avisos_globais"), { tipo, titulo, mensagem, fixo, criado_em: serverTimestamp() });
+            const { error } = await supabase.from("avisos_globais").insert({ tipo, titulo, mensagem, fixo });
+            if (error) throw error;
             document.getElementById('comunicadoTitulo').value = '';
             document.getElementById('comunicadoMensagem').value = '';
             toast('✅ Comunicado enviado!');
@@ -3178,7 +3193,11 @@
     });
     window.excluirComunicado = async (id) => {
         if (!confirm('Excluir este comunicado?')) return;
-        try { await deleteDoc(doc(db, "avisos_globais", id)); toast('🗑 Excluído.'); }
+        try {
+            const { error } = await supabase.from("avisos_globais").delete().eq("id", id);
+            if (error) throw error;
+            toast('🗑 Excluído.');
+        }
         catch(e) { toast('❌ Erro ao excluir.'); }
     };
     document.querySelector('[data-secao="comunicados"]')?.addEventListener('click', () => escutarComunicados());
