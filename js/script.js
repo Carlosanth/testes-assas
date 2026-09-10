@@ -1,6 +1,6 @@
-import { supabase, edgeFunctions } from './supabase-config.js';
+(async function Harvey(){
+  const { supabase, edgeFunctions } = await import('./supabase-config.js');
 
-(function Harvey(){
   let produtoAtualId       = "";
   let produtoAtualTitulo   = "";
   let produtoAtualCotas    = 0;   // cotas_total do produto (0 = sem cotas)
