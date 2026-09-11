@@ -1,6 +1,6 @@
-(async function Harvey(){
-  const { supabase, edgeFunctions } = await import('./supabase-config.js');
+import { supabase, edgeFunctions } from './supabase-config.js';
 
+(function Harvey(){
   let produtoAtualId       = "";
   let produtoAtualTitulo   = "";
   let produtoAtualCotas    = 0;   // cotas_total do produto (0 = sem cotas)
@@ -284,13 +284,21 @@
     let nomesCategoriaCache = {};
 
     async function carregarNomesCategoria() {
-      const [{ data: padrao }, { data: custom }] = await Promise.all([
-        supabase.from("categorias").select("id, nome"),
-        supabase.from("categorias_custom").select("id, nome").eq("usuario_id", usuarioIdUrl),
-      ]);
-      nomesCategoriaCache = {};
-      (padrao || []).forEach(c => { nomesCategoriaCache[c.id] = c.nome; });
-      (custom || []).forEach(c => { nomesCategoriaCache[c.id] = c.nome; });
+      try {
+        const [{ data: padrao }, { data: custom }] = await Promise.all([
+          supabase.from("categorias").select("id, nome"),
+          supabase.from("categorias_custom").select("id, nome").eq("usuario_id", usuarioIdUrl),
+        ]);
+        nomesCategoriaCache = {};
+        (padrao || []).forEach(c => { nomesCategoriaCache[c.id] = c.nome; });
+        (custom || []).forEach(c => { nomesCategoriaCache[c.id] = c.nome; });
+      } catch (e) {
+        // Categoria é só um detalhe de exibição — se essa busca falhar por
+        // qualquer motivo, os produtos ainda têm que aparecer (sem nome de
+        // categoria, mas visíveis e compráveis).
+        console.error("Erro ao carregar categorias (não bloqueia a lista):", e);
+        nomesCategoriaCache = {};
+      }
     }
 
     async function buscarERenderizarProdutosPublico() {
