@@ -2791,9 +2791,8 @@
         }
 
         const chipsPorStatus = {
-            processando: '<span class="chip chip-amarelo">Processando</span>',
-            concluido:   '<span class="chip chip-verde">Concluído</span>',
-            falhou:      '<span class="chip chip-vermelho">Falhou</span>',
+            pendente:  '<span class="chip chip-amarelo">Pendente</span>',
+            concluido: '<span class="chip chip-verde">Pago</span>',
         };
 
         container.innerHTML = saques.map(s => {
@@ -2815,38 +2814,30 @@
                             <span class="saque-info-valor verde">${valorBrl}</span>
                         </div>
                         <div class="saque-info-item">
-                            <span class="saque-info-label">Transferência Asaas</span>
-                            <span class="saque-info-valor">${s.asaas_transfer_id || '—'}</span>
-                        </div>
-                        <div class="saque-info-item">
                             <span class="saque-info-label">Data solicitação</span>
                             <span class="saque-info-valor">${fmtDate(s.criado_em)}</span>
                         </div>
                         ${s.status === 'concluido' && s.data_confirmacao_manual ? `<div class="saque-info-item">
-                            <span class="saque-info-label">Confirmado manualmente em</span>
+                            <span class="saque-info-label">Pago em</span>
                             <span class="saque-info-valor verde">${fmtDate(s.data_confirmacao_manual)}</span>
                         </div>` : ''}
                     </div>
-                    ${s.status === 'falhou' && s.erro_detalhe ? `<div style="margin-top:10px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:12px; color:#f87171;">
-                        ⚠️ ${escapeHTML(s.erro_detalhe)}
-                    </div>` : ''}
                     ${s.status === 'concluido' && s.observacao_admin ? `<div style="margin-top:10px; padding:8px 10px; background:var(--bg); border-radius:8px; font-size:12px; color:var(--text3);">
                         📝 ${escapeHTML(s.observacao_admin)}
                     </div>` : ''}
                 </div>
                 <div class="saque-acoes">
-                    ${s.status === 'falhou' ? `<button class="btn-tabela btn-marcar-pago" data-saque-id="${s.id}" onclick="marcarSaqueComoPago('${s.id}')">✅ Marcar como resolvido</button>` : ''}
+                    ${s.status === 'pendente' ? `<button class="btn-tabela btn-marcar-pago" data-saque-id="${s.id}" onclick="marcarSaqueComoPago('${s.id}')">✅ Marcar como pago</button>` : ''}
                 </div>
             </div>`;
         }).join('');
     }
 
     // ══════════════════════════════════════════════════════════
-    // BADGE SAQUES COM FALHA (precisam de atenção do admin — os que
-    // estão "processando" são o fluxo normal e não entram na contagem)
+    // BADGE SAQUES PENDENTES (repasse manual — precisam de ação do admin)
     // ══════════════════════════════════════════════════════════
     function atualizarBadgeSaques(saques) {
-        const pendentes = saques.filter(s => s.status === 'falhou');
+        const pendentes = saques.filter(s => s.status === 'pendente');
         const badge = document.getElementById('badgeSaquesPendentes');
         if (!badge) return;
         if (pendentes.length > 0) {
@@ -2859,25 +2850,24 @@
 
     // ══════════════════════════════════════════════════════════
     // RESUMO DOS SAQUES
-    // ⚠️ Não existe mais "lucro" por saque — a taxa da plataforma já é
-    // descontada no split, no momento do pagamento (fica registrada em
-    // contribuicoes/transacoes, não aqui). O card de lucro virou contagem
-    // de falhas, que é o que realmente precisa de atenção nesta tela.
+    // ⚠️ Repasse é manual agora (você transfere pelo próprio app da
+    // InfinitePay) — não existe mais tentativa automática nem "falha" de
+    // transferência. O card que antes mostrava falhas agora mostra o
+    // total de solicitações já processadas (histórico).
     // ══════════════════════════════════════════════════════════
     function atualizarResumoSaques(saques) {
-        const processando = saques.filter(s => s.status === 'processando');
-        const concluidos   = saques.filter(s => s.status === 'concluido');
-        const falhados     = saques.filter(s => s.status === 'falhou');
+        const pendentes  = saques.filter(s => s.status === 'pendente');
+        const concluidos = saques.filter(s => s.status === 'concluido');
 
-        const totalProcessando = processando.reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
-        const totalConcluido   = concluidos.reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
+        const totalPendente  = pendentes.reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
+        const totalConcluido = concluidos.reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
         const el = (id) => document.getElementById(id);
-        if (el('saqPendente'))   el('saqPendente').textContent   = brl(totalProcessando);
-        if (el('saqPendenteQtd')) el('saqPendenteQtd').textContent = `${processando.length} solicitação(ões)`;
+        if (el('saqPendente'))   el('saqPendente').textContent   = brl(totalPendente);
+        if (el('saqPendenteQtd')) el('saqPendenteQtd').textContent = `${pendentes.length} solicitação(ões)`;
         if (el('saqPago'))       el('saqPago').textContent       = brl(totalConcluido);
         if (el('saqPagoQtd'))    el('saqPagoQtd').textContent    = `${concluidos.length} repasse(s) realizado(s)`;
-        if (el('saqLucro'))      el('saqLucro').textContent      = `${falhados.length} falha(s)`;
+        if (el('saqLucro'))      el('saqLucro').textContent      = `${saques.length} no total`;
     }
 
     // ══════════════════════════════════════════════════════════
@@ -2892,23 +2882,19 @@
     });
 
     // ══════════════════════════════════════════════════════════
-    // MARCAR TODAS AS FALHAS COMO RESOLVIDAS (em lote)
-    // ⚠️ Adaptado do antigo "marcar todos como pago": no modelo automático,
-    // só faz sentido em lote pra saques que FALHARAM e foram resolvidos
-    // manualmente por fora (transferências "processando" são o fluxo normal
-    // e nunca devem ser sobrescritas em massa).
+    // MARCAR TODOS PENDENTES COMO PAGO (em lote)
     // ══════════════════════════════════════════════════════════
     document.getElementById('btnMarcarTodosPago')?.addEventListener('click', async () => {
-        const falhados = todosOsSaques.filter(s => s.status === 'falhou');
-        if (falhados.length === 0) { toast('Não há saques com falha pendente de resolução.'); return; }
-        if (!confirm(`Marcar ${falhados.length} saque(s) com falha como resolvido(s)? Use isso só depois de confirmar manualmente que o dinheiro foi transferido. Esta ação não pode ser desfeita.`)) return;
+        const pendentes = todosOsSaques.filter(s => s.status === 'pendente');
+        if (pendentes.length === 0) { toast('Não há saques pendentes.'); return; }
+        if (!confirm(`Marcar ${pendentes.length} saque(s) como pago? Use isso só depois de transferir de verdade pelo app da InfinitePay. Esta ação não pode ser desfeita.`)) return;
         try {
             const { error } = await supabase.from("saques").update({
                 status: "concluido",
                 data_confirmacao_manual: new Date().toISOString(),
-            }).in("id", falhados.map(s => s.id));
+            }).in("id", pendentes.map(s => s.id));
             if (error) throw error;
-            toast(`✅ ${falhados.length} saque(s) marcado(s) como resolvido(s)!`);
+            toast(`✅ ${pendentes.length} saque(s) marcado(s) como pago(s)!`);
         } catch(e) {
             console.error(e);
             toast('❌ Erro ao atualizar saques.');
@@ -2923,14 +2909,14 @@
         // (cota parcial inclusa), não o preço cheio do produto.
         const totalMovimentado = contribuicoes.reduce((a, c) => a + c.valorCentavos, 0);
 
-        // Já sacado = transferências automáticas concluídas
+        // Já sacado = repasses manuais já confirmados como pagos
         const jaSacado = saques
             .filter(s => s.status === 'concluido')
             .reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
-        // Aguardando = transferências em andamento (não inclui as que falharam)
+        // Aguardando = solicitações pendentes de repasse manual
         const aguardando = saques
-            .filter(s => s.status === 'processando')
+            .filter(s => s.status === 'pendente')
             .reduce((a, s) => a + parseInt(s.valor_centavos || 0), 0);
 
         // Comissão real: total recebido menos o que é devido a cada cliente
