@@ -310,11 +310,10 @@
                     <div style="display:flex; gap:8px; align-items:center;">
                         <select id="filtroStatusSaque" style="background:var(--surface2); border:1px solid var(--border2); color:var(--text); border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer;">
                             <option value="">Todos</option>
-                            <option value="processando">⏳ Processando</option>
-                            <option value="concluido">✅ Concluídos</option>
-                            <option value="falhou">⚠️ Falharam</option>
+                            <option value="pendente">⏳ Pendentes</option>
+                            <option value="concluido">✅ Pagos</option>
                         </select>
-                        <button id="btnMarcarTodosPago" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#34d399; border-radius:8px; padding:4px 12px; font-size:12px; cursor:pointer; font-weight:600;">✅ Marcar falhas como resolvidas</button>
+                        <button id="btnMarcarTodosPago" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#34d399; border-radius:8px; padding:4px 12px; font-size:12px; cursor:pointer; font-weight:600;">✅ Marcar todos pendentes como pago</button>
                         <span id="labelTotalSaques" style="font-size:11px; color:var(--text3);">—</span>
                     </div>
                 </div>

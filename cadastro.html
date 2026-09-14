@@ -582,7 +582,7 @@
 
         
 
-        const URL_BASE_SITE = "https://carlosanth.github.io/testes-assas/lista.html";
+        const URL_BASE_SITE = "https://www.escolhaseupresente.com/lista.html";
         const LIMITE_ITENS = 1000;
         let TAXA_PERCENTUAL = 2.8; // valor real carregado do admin_config/global // futuramente virá do painel admin
 
@@ -3172,7 +3172,7 @@
                 document.getElementById('saqueNome').value    = '';
                 document.getElementById('saqueCpf').value     = '';
                 document.getElementById('saqueWhatsapp').value = '';
-                mostrarToast('Saque solicitado! O valor cai via Pix na sua chave (CPF). ✅', 'sucesso', '💸');
+                mostrarToast('Saque solicitado! O repasse é feito manualmente, em até 2 dias úteis. ✅', 'sucesso', '💸');
             } catch(e) {
                 console.error(e);
                 mostrarToast(e.message || 'Erro ao solicitar saque. Tente novamente.', 'erro', '❌');
